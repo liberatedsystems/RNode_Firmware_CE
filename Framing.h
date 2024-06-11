@@ -22,7 +22,6 @@
   #define TFESC           0xDD
 
   #define CMD_UNKNOWN     0xFE
-  #define CMD_DATA        0x00
   #define CMD_FREQUENCY   0x01
   #define CMD_BANDWIDTH   0x02
   #define CMD_TXPOWER     0x03
@@ -74,6 +73,34 @@
   #define ROM_UNLOCK_BYTE 0xF8
   #define CMD_RESET       0x55
   #define CMD_RESET_BYTE  0xF8
+
+  #define CMD_INTERFACES  0x64
+
+  #define CMD_INT0_DATA   0x00
+  #define CMD_INT1_DATA   0x10
+  #define CMD_INT2_DATA   0x20
+  #define CMD_INT3_DATA   0x70
+  #define CMD_INT4_DATA   0x80
+  #define CMD_INT5_DATA   0x90
+  #define CMD_INT6_DATA   0xA0
+  #define CMD_INT7_DATA   0xB0
+  #define CMD_INT8_DATA   0xC0
+  #define CMD_INT9_DATA   0xD0
+  #define CMD_INT10_DATA  0xE0
+  #define CMD_INT11_DATA  0xF0
+
+  #define CMD_SEL_INT0    0x1E
+  #define CMD_SEL_INT1    0x1F
+  #define CMD_SEL_INT2    0x2F
+  #define CMD_SEL_INT3    0x7F
+  #define CMD_SEL_INT4    0x8F
+  #define CMD_SEL_INT5    0x9F
+  #define CMD_SEL_INT6    0xAF
+  #define CMD_SEL_INT7    0xBF
+  #define CMD_SEL_INT8    0xCF
+  #define CMD_SEL_INT9    0xDF
+  #define CMD_SEL_INT10   0xEF
+  #define CMD_SEL_INT11   0xFF
 
   #define DETECT_REQ      0x73
   #define DETECT_RESP     0x46

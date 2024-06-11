@@ -13,17 +13,14 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#include "Modem.h"
+#include "Interfaces.h"
 
 #ifndef BOARDS_H
   #define BOARDS_H
 
-  #define PLATFORM_AVR        0x90
   #define PLATFORM_ESP32      0x80
   #define PLATFORM_NRF52      0x70
 
-  #define MCU_1284P           0x91
-  #define MCU_2560            0x92
   #define MCU_ESP32           0x81
   #define MCU_NRF52           0x71
 
@@ -47,13 +44,7 @@
   #define EINK_BW 0x02
   #define EINK_3C 0x03
 
-  #if defined(__AVR_ATmega1284P__)
-    #define PLATFORM PLATFORM_AVR
-    #define MCU_VARIANT MCU_1284P
-  #elif defined(__AVR_ATmega2560__)
-    #define PLATFORM PLATFORM_AVR
-    #define MCU_VARIANT MCU_2560
-  #elif defined(ESP32)
+  #if defined(ESP32)
     #define PLATFORM PLATFORM_ESP32
     #define MCU_VARIANT MCU_ESP32
   #elif defined(NRF52840_XXAA)
@@ -62,16 +53,6 @@
     #define MCU_VARIANT MCU_NRF52
   #else
       #error "The firmware cannot be compiled for the selected MCU variant"
-  #endif
-
-  #ifndef MODEM
-    #if BOARD_MODEL == BOARD_RAK4631
-      #define MODEM SX1262
-    #elif BOARD_MODEL == BOARD_GENERIC_NRF52
-      #define MODEM SX1262
-    #else
-      #define MODEM SX1276
-    #endif
   #endif
 
   #define HAS_DISPLAY false
@@ -90,37 +71,7 @@
       #define HAS_TCXO true
   #endif
 
-  #if MCU_VARIANT == MCU_1284P
-    const int pin_cs = 4;
-    const int pin_reset = 3;
-    const int pin_dio = 2;
-    const int pin_led_rx = 12;
-    const int pin_led_tx = 13;
-
-    #define BOARD_MODEL BOARD_RNODE
-    #define HAS_EEPROM true
-    #define CONFIG_UART_BUFFER_SIZE 6144
-    #define CONFIG_QUEUE_SIZE 6144
-    #define CONFIG_QUEUE_MAX_LENGTH 200
-    #define EEPROM_SIZE 4096
-    #define EEPROM_OFFSET EEPROM_SIZE-EEPROM_RESERVED
-  
-  #elif MCU_VARIANT == MCU_2560
-    const int pin_cs = 5;
-    const int pin_reset = 4;
-    const int pin_dio = 2;
-    const int pin_led_rx = 12;
-    const int pin_led_tx = 13;
-
-    #define BOARD_MODEL BOARD_HMBRW
-    #define HAS_EEPROM true
-    #define CONFIG_UART_BUFFER_SIZE 768
-    #define CONFIG_QUEUE_SIZE 5120
-    #define CONFIG_QUEUE_MAX_LENGTH 24
-    #define EEPROM_SIZE 4096
-    #define EEPROM_OFFSET EEPROM_SIZE-EEPROM_RESERVED
-
-  #elif MCU_VARIANT == MCU_ESP32
+  #if MCU_VARIANT == MCU_ESP32
 
     // Board models for ESP32 based builds are
     // defined by the build target in the makefile.
@@ -143,11 +94,33 @@
       #define HAS_BLUETOOTH true
       #define HAS_CONSOLE true
       #define HAS_EEPROM true
-      const int pin_cs = 4;
-      const int pin_reset = 36;
-      const int pin_dio = 39;
+      #define INTERFACE_COUNT 1
       const int pin_led_rx = 14;
       const int pin_led_tx = 32;
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX127X};
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+                    // SX127X
+          {
+              true, // DEFAULT_SPI
+              false, // HAS_TCXO
+              false  // DIO2_AS_RF_SWITCH
+          }, 
+      };
+      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+                  // SX127X
+          {
+              4, // pin_ss
+              -1, // pin_sclk
+              -1, // pin_mosi
+              -1, // pin_miso
+              -1, // pin_busy
+              39, // pin_dio
+              36, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
 
     #elif BOARD_MODEL == BOARD_TBEAM
       #define HAS_DISPLAY true
@@ -161,31 +134,69 @@
       #define I2C_SDA 21
       #define I2C_SCL 22
       #define PMU_IRQ 35
-      const int pin_cs = 18;
-      const int pin_reset = 23;
       const int pin_led_rx = 2;
       const int pin_led_tx = 4;
 
-      #if MODEM == SX1262
-        #define HAS_TCXO true
-        #define HAS_BUSY true
-        #define DIO2_AS_RF_SWITCH true
-        const int pin_busy = 32;
-        const int pin_dio = 33;
-        const int pin_tcxo_enable = -1;
-      #else
-        const int pin_dio = 26;
-      #endif
+      #define INTERFACE_COUNT 1
+
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+                    // SX1262
+          {
+              true, // DEFAULT_SPI
+              true, // HAS_TCXO
+              true  // DIO2_AS_RF_SWITCH
+          }, 
+      };
+      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+                  // SX1262
+          {
+              18, // pin_ss
+              -1, // pin_sclk
+              -1, // pin_mosi
+              -1, // pin_miso
+              32, // pin_busy
+              33, // pin_dio
+              23, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
 
     #elif BOARD_MODEL == BOARD_HUZZAH32
       #define HAS_BLUETOOTH true
       #define HAS_CONSOLE true
       #define HAS_EEPROM true
-      const int pin_cs = 4;
-      const int pin_reset = 36;
-      const int pin_dio = 39;
       const int pin_led_rx = 14;
       const int pin_led_tx = 32;
+
+      #define INTERFACE_COUNT 1
+
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX127X};
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+                    // SX127X
+          {
+              true, // DEFAULT_SPI
+              false, // HAS_TCXO
+              false  // DIO2_AS_RF_SWITCH
+          }, 
+      };
+      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+                  // SX1262
+          {
+               4, // pin_ss
+              -1, // pin_sclk
+              -1, // pin_mosi
+              -1, // pin_miso
+              -1, // pin_busy
+              39, // pin_dio
+              36, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
 
     #elif BOARD_MODEL == BOARD_LORA32_V1_0
       #define HAS_DISPLAY true
@@ -205,6 +216,33 @@
         const int pin_led_tx = 2;
       #endif
 
+      #define INTERFACE_COUNT 1
+
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX1276};
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+                    // SX1276
+          {
+              true, // DEFAULT_SPI
+              false, // HAS_TCXO
+              false  // DIO2_AS_RF_SWITCH
+          }, 
+      };
+      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+                  // SX1276
+          {
+              18, // pin_ss
+              -1, // pin_sclk
+              -1, // pin_mosi
+              -1, // pin_miso
+              -1, // pin_busy
+              26, // pin_dio
+              14, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
+
     #elif BOARD_MODEL == BOARD_LORA32_V2_0
       #define HAS_DISPLAY true
       #define DISPLAY OLED
@@ -223,6 +261,33 @@
         const int pin_led_tx = 22;
       #endif
 
+      #define INTERFACE_COUNT 1
+
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX127X};
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+                    // SX127X
+          {
+              true, // DEFAULT_SPI
+              false, // HAS_TCXO
+              false  // DIO2_AS_RF_SWITCH
+          }, 
+      };
+      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+                  // SX127X
+          {
+              18, // pin_ss
+              -1, // pin_sclk
+              -1, // pin_mosi
+              -1, // pin_miso
+              -1, // pin_busy
+              26, // pin_dio
+              14, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
+
     #elif BOARD_MODEL == BOARD_LORA32_V2_1
       #define HAS_DISPLAY true
       #define DISPLAY OLED
@@ -231,11 +296,30 @@
       #define HAS_PMU true
       #define HAS_CONSOLE true
       #define HAS_EEPROM true
-      const int pin_cs = 18;
-      const int pin_reset = 23;
-      const int pin_dio = 26;
       #if HAS_TCXO == true
-        const int pin_tcxo_enable = 33;
+        const bool interface_cfg[INTERFACE_COUNT][3] = { 
+                        // SX127X
+              {
+                  true, // DEFAULT_SPI
+                  true, // HAS_TCXO
+                  false  // DIO2_AS_RF_SWITCH
+              }, 
+        };
+      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+                  // SX127X
+          {
+              18, // pin_ss
+              -1, // pin_sclk
+              -1, // pin_mosi
+              -1, // pin_miso
+              -1, // pin_busy
+              26, // pin_dio
+              23, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              33  // pin_tcxo_enable
+          }
+      };
       #endif
       #if defined(EXTERNAL_LEDS)
         const int pin_led_rx = 15;
@@ -245,15 +329,43 @@
         const int pin_led_tx = 25;
       #endif
 
+      #define INTERFACE_COUNT 1
+
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX127X};
+
+      #if HAS_TCXO == false
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+                    // SX127X
+          {
+              true, // DEFAULT_SPI
+              false, // HAS_TCXO
+              false  // DIO2_AS_RF_SWITCH
+          }, 
+      };
+
+      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+                  // SX127X
+          {
+              18, // pin_ss
+              -1, // pin_sclk
+              -1, // pin_mosi
+              -1, // pin_miso
+              -1, // pin_busy
+              26, // pin_dio
+              23, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
+      #endif
+
     #elif BOARD_MODEL == BOARD_HELTEC32_V2
       #define HAS_DISPLAY true
       #define DISPLAY OLED
       #define HAS_BLUETOOTH true
       #define HAS_CONSOLE true
       #define HAS_EEPROM true
-      const int pin_cs = 18;
-      const int pin_reset = 14;
-      const int pin_dio = 26;
       #if defined(EXTERNAL_LEDS)
         const int pin_led_rx = 36;
         const int pin_led_tx = 37;
@@ -261,6 +373,33 @@
         const int pin_led_rx = 25;
         const int pin_led_tx = 25;
       #endif
+
+      #define INTERFACE_COUNT 1
+
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX127X};
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+                    // SX127X
+          {
+              true, // DEFAULT_SPI
+              false, // HAS_TCXO
+              false  // DIO2_AS_RF_SWITCH
+          }, 
+      };
+      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+                  // SX127X
+          {
+              18, // pin_ss
+              -1, // pin_sclk
+              -1, // pin_mosi
+              -1, // pin_miso
+              -1, // pin_busy
+              26, // pin_dio
+              14, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
 
     #elif BOARD_MODEL == BOARD_HELTEC32_V3
       #define IS_ESP32S3 true
@@ -273,6 +412,7 @@
       #define HAS_SLEEP true
       #define PIN_WAKEUP GPIO_NUM_0
       #define WAKEUP_LEVEL 0
+      #define INTERFACE_COUNT 1
 
       const int pin_btn_usr1 = 0;
 
@@ -284,20 +424,30 @@
         const int pin_led_tx = 35;
       #endif
 
-      #define MODEM SX1262
-      #define HAS_TCXO true
-      const int pin_tcxo_enable = -1;
-      #define HAS_BUSY true
-      #define DIO2_AS_RF_SWITCH true
-
-      // Following pins are for the SX1262
-      const int pin_cs = 8;
-      const int pin_busy = 13;
-      const int pin_dio = 14;
-      const int pin_reset = 12;
-      const int pin_mosi = 10;
-      const int pin_miso = 11;
-      const int pin_sclk = 9;
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+                    // SX1262
+          {
+              false, // DEFAULT_SPI
+              true, // HAS_TCXO
+              true  // DIO2_AS_RF_SWITCH
+          }, 
+      };
+      const uint8_t interface_pins[INTERFACE_COUNT][10] = { 
+                  // SX1262
+          {
+              8, // pin_ss
+              9, // pin_sclk
+              10, // pin_mosi
+              11, // pin_miso
+              13, // pin_busy
+              14, // pin_dio
+              12, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
 
     #elif BOARD_MODEL == BOARD_RNODE_NG_20
       #define HAS_DISPLAY true
@@ -320,6 +470,31 @@
         #endif
       #endif
 
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX1276};
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+                    // SX1276
+          {
+              false, // DEFAULT_SPI
+              true, // HAS_TCXO
+              true  // DIO2_AS_RF_SWITCH
+          }, 
+      };
+      const uint8_t interface_pins[INTERFACE_COUNT][10] = { 
+                  // SX1276
+          {
+              8, // pin_ss
+              9, // pin_sclk
+              10, // pin_mosi
+              11, // pin_miso
+              13, // pin_busy
+              14, // pin_dio
+              12, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
+
     #elif BOARD_MODEL == BOARD_RNODE_NG_21
       #define HAS_DISPLAY true
       #define DISPLAY OLED
@@ -329,9 +504,6 @@
       #define HAS_NP true
       #define HAS_SD false
       #define HAS_EEPROM true
-      const int pin_cs = 18;
-      const int pin_reset = 23;
-      const int pin_dio = 26;
       const int pin_np = 12;
       const int pin_dac = 25;
       const int pin_adc = 34;
@@ -349,12 +521,34 @@
         #endif
       #endif
 
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX127X};
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+                    // SX127X
+          {
+              true, // DEFAULT_SPI
+              false, // HAS_TCXO
+              false  // DIO2_AS_RF_SWITCH
+          }, 
+      };
+      const uint8_t interface_pins[INTERFACE_COUNT][10] = { 
+                  // SX127X
+          {
+              18, // pin_ss
+              -1, // pin_sclk
+              -1, // pin_mosi
+              -1, // pin_miso
+              -1, // pin_busy
+              26, // pin_dio
+              23, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
+
     #elif BOARD_MODEL == BOARD_RNODE_NG_22
       #define IS_ESP32S3 true
       #define MODEM SX1262
-      #define DIO2_AS_RF_SWITCH true
-      #define HAS_BUSY true
-      #define HAS_TCXO true
 
       #define HAS_DISPLAY true
       #define DISPLAY OLED
@@ -373,16 +567,6 @@
       // #define PIN_DISP_SLEEP 21
       // #define DISP_SLEEP_LEVEL HIGH
       const int pin_btn_usr1 = 0;
-
-      const int pin_cs = 7;
-      const int pin_reset = 8;
-      const int pin_sclk = 5;
-      const int pin_mosi = 6;
-      const int pin_miso = 3;
-      const int pin_tcxo_enable = -1;
-
-      const int pin_dio = 33;
-      const int pin_busy = 34;
       
       const int pin_np = 38;
       const int pin_dac = 25;
@@ -402,6 +586,31 @@
         #endif
       #endif
 
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+                    // SX1262
+          {
+              false, // DEFAULT_SPI
+              true, // HAS_TCXO
+              true  // DIO2_AS_RF_SWITCH
+          }, 
+      };
+      const uint8_t interface_pins[INTERFACE_COUNT][10] = { 
+                  // SX1262
+          {
+               7, // pin_ss
+               5, // pin_sclk
+               6, // pin_mosi
+               3, // pin_miso
+              34, // pin_busy
+              33, // pin_dio
+               8, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
+
     #else
       #error An unsupported ESP32 board was selected. Cannot compile RNode firmware.
     #endif
@@ -410,17 +619,14 @@
     #if BOARD_MODEL == BOARD_RAK4631
       #define HAS_EEPROM false
       #define HAS_DISPLAY true
-      #define DISPLAY EINK_3C
+      #define DISPLAY EINK_BW
       #define HAS_BLUETOOTH false
       #define HAS_BLE true
       #define HAS_CONSOLE false
       #define HAS_PMU true
       #define HAS_NP false
       #define HAS_SD false
-      #define HAS_TCXO true
       #define HAS_RF_SWITCH_RX_TX true
-      #define HAS_BUSY true
-      #define DIO2_AS_RF_SWITCH true
       #define CONFIG_UART_BUFFER_SIZE 6144
       #define CONFIG_QUEUE_SIZE 6144
       #define CONFIG_QUEUE_MAX_LENGTH 200
@@ -429,15 +635,45 @@
       #define BLE_MANUFACTURER "RAK Wireless"
       #define BLE_MODEL "RAK4640"
 
-      // Following pins are for the sx1262
-      const int pin_rxen = 37;
-      const int pin_reset = 38;
-      const int pin_cs = 42;
-      const int pin_sclk = 43;
-      const int pin_mosi = 44;
-      const int pin_miso = 45;
-      const int pin_busy = 46;
-      const int pin_dio = 47;
+      #define INTERFACE_COUNT 1
+
+      // first interface in list is the primary
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX126X};
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+                    // SX1262
+          {
+              false, // DEFAULT_SPI
+              true, // HAS_TCXO
+              true  // DIO2_AS_RF_SWITCH
+          }
+      };
+      const uint8_t interface_pins[INTERFACE_COUNT][10] = { 
+                  // SX1262
+          {
+              42, // pin_ss
+              43, // pin_sclk
+              44, // pin_mosi
+              45, // pin_miso
+              46, // pin_busy
+              47, // pin_dio
+              38, // pin_reset
+              -1, // pin_txen
+              37, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
+
+        #define INTERFACE_SPI
+        // Required because on RAK4631, non-default SPI pins must be initialised when class is declared.
+      const SPIClass interface_spi[1] = {
+            // SX1262
+            SPIClass(
+                NRF_SPIM2, 
+                interface_pins[0][3], 
+                interface_pins[0][1], 
+                interface_pins[0][2]
+               )
+      };
 
       const int pin_disp_cs = SS;
       const int pin_disp_dc = WB_IO1;
@@ -447,25 +683,15 @@
 
       const int pin_led_rx = LED_BLUE;
       const int pin_led_tx = LED_GREEN;
-      const int pin_tcxo_enable = -1;
 
     #else
       #error An unsupported nRF board was selected. Cannot compile RNode firmware.
     #endif
 
   #endif
-
-  #ifndef HAS_RF_SWITCH_RX_TX
-    const int pin_rxen = -1;
-    const int pin_txen = -1;
+  #ifndef INTERFACE_SPI
+    // Even if custom SPI interfaces are not needed, the array must exist to prevent compilation errors.
+    #define INTERFACE_SPI
+    const SPIClass interface_spi[1];
   #endif
-
-  #ifndef HAS_BUSY
-    const int pin_busy = -1;
-  #endif
-
-  #ifndef DIO2_AS_RF_SWITCH
-    #define DIO2_AS_RF_SWITCH false
-  #endif
-
 #endif

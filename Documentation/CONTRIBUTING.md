@@ -10,6 +10,11 @@ This entry should include, at a minimum, the following:
 * whether the modem has a busy pin
 * RX and TX leds (preferably LEDs of different colours)
 
+# Check this area...
+see https://github.com/espressif/arduino-esp32/blob/master/cores/esp32/esp32-hal-spi.h#L39
+Effectively, there are multiple SPI buses we can map to pins on these
+devices (including the hardware SPI bus)
+
 An example of a minimal entry can be seen below:
 ```
 #elif BOARD_MODEL == BOARD_MY_WICKED_BOARD

@@ -13,7 +13,12 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+#include "Radio.h"
 #include "Config.h"
+
+// Included for sorting
+#include <algorithm>
+#include <iterator>
 
 #if HAS_EEPROM 
     #include <EEPROM.h>
@@ -27,17 +32,6 @@
     File file(InternalFS);
 #endif
 #include <stddef.h>
-
-#if MODEM == SX1262
-#include "sx126x.h"
-sx126x *LoRa = &sx126x_modem;
-#elif MODEM == SX1276 || MODEM == SX1278
-#include "sx127x.h"
-sx127x *LoRa = &sx127x_modem;
-#elif MODEM == SX1280
-#include "sx128x.h"
-sx128x *LoRa = &sx128x_modem;
-#endif
 
 #include "ROM.h"
 #include "Framing.h"
@@ -81,20 +75,9 @@ uint8_t eeprom_read(uint32_t mapped_addr);
   #define ISR_VECT
 #endif
 
-#if MCU_VARIANT == MCU_1284P || MCU_VARIANT == MCU_2560
-	#include <avr/wdt.h>
-	#include <util/atomic.h>
-#endif
-
 uint8_t boot_vector = 0x00;
 
-#if MCU_VARIANT == MCU_1284P || MCU_VARIANT == MCU_2560
-	uint8_t OPTIBOOT_MCUSR __attribute__ ((section(".noinit")));
-	void resetFlagsInit(void) __attribute__ ((naked)) __attribute__ ((used)) __attribute__ ((section (".init0")));
-	void resetFlagsInit(void) {
-	    __asm__ __volatile__ ("sts %0, r2\n" : "=m" (OPTIBOOT_MCUSR) :);
-	}
-#elif MCU_VARIANT == MCU_ESP32
+#if MCU_VARIANT == MCU_ESP32
 	// TODO: Get ESP32 boot flags
 #elif MCU_VARIANT == MCU_NRF52
 	// TODO: Get NRF52 boot flags
@@ -138,12 +121,7 @@ uint8_t boot_vector = 0x00;
   void boot_seq() { }
 #endif
 
-#if MCU_VARIANT == MCU_1284P || MCU_VARIANT == MCU_2560
-	void led_rx_on()  { digitalWrite(pin_led_rx, HIGH); }
-	void led_rx_off() {	digitalWrite(pin_led_rx, LOW); }
-	void led_tx_on()  { digitalWrite(pin_led_tx, HIGH); }
-	void led_tx_off() { digitalWrite(pin_led_tx, LOW); }
-#elif MCU_VARIANT == MCU_ESP32
+#if MCU_VARIANT == MCU_ESP32
 	#if HAS_NP == true
 		void led_rx_on()  { npset(0, 0, 0xFF); }
 		void led_rx_off() {	npset(0, 0, 0); }
@@ -236,12 +214,7 @@ uint8_t boot_vector = 0x00;
 #endif
 
 void hard_reset(void) {
-	#if MCU_VARIANT == MCU_1284P || MCU_VARIANT == MCU_2560
-		wdt_enable(WDTO_15MS);
-		while(true) {
-			led_tx_on(); led_rx_off();
-		}
-	#elif MCU_VARIANT == MCU_ESP32
+	#if MCU_VARIANT == MCU_ESP32
 		ESP.restart();
 	#elif MCU_VARIANT == MCU_NRF52
         NVIC_SystemReset();
@@ -332,20 +305,7 @@ void led_indicate_warning(int cycles) {
 }
 
 // LED Indication: Info
-#if MCU_VARIANT == MCU_1284P || MCU_VARIANT == MCU_2560
-	void led_indicate_info(int cycles) {
-		bool forever = (cycles == 0) ? true : false;
-		cycles = forever ? 1 : cycles;
-		while(cycles > 0) {
-	    led_rx_off();
-	    delay(100);
-	    led_rx_on();
-	    delay(100);
-	    if (!forever) cycles--;
-	  }
-	  led_rx_off();
-	}
-#elif MCU_VARIANT == MCU_ESP32 || MCU_VARIANT == MCU_NRF52
+#if MCU_VARIANT == MCU_ESP32 || MCU_VARIANT == MCU_NRF52
 	#if HAS_NP == true
 		void led_indicate_info(int cycles) {
 			bool forever = (cycles == 0) ? true : false;
@@ -403,12 +363,7 @@ void led_indicate_warning(int cycles) {
 
 
 unsigned long led_standby_ticks = 0;
-#if MCU_VARIANT == MCU_1284P || MCU_VARIANT == MCU_2560
-	uint8_t led_standby_min = 1;
-	uint8_t led_standby_max = 40;
-	unsigned long led_standby_wait = 11000;
-
-#elif MCU_VARIANT == MCU_ESP32
+#if MCU_VARIANT == MCU_ESP32
 
 	#if HAS_NP == true
 		int led_standby_lng = 100;
@@ -451,23 +406,7 @@ unsigned long led_standby_ticks = 0;
 unsigned long led_standby_value = led_standby_min;
 int8_t  led_standby_direction = 0;
 
-#if MCU_VARIANT == MCU_1284P || MCU_VARIANT == MCU_2560
-	void led_indicate_standby() {
-		led_standby_ticks++;
-		if (led_standby_ticks > led_standby_wait) {
-			led_standby_ticks = 0;
-			if (led_standby_value <= led_standby_min) {
-				led_standby_direction = 1;
-			} else if (led_standby_value >= led_standby_max) {
-				led_standby_direction = -1;
-			}
-			led_standby_value += led_standby_direction;
-			analogWrite(pin_led_rx, led_standby_value);
-			led_tx_off();
-		}
-	}
-
-#elif MCU_VARIANT == MCU_ESP32 || MCU_VARIANT == MCU_NRF52
+#if MCU_VARIANT == MCU_ESP32 || MCU_VARIANT == MCU_NRF52
 	#if HAS_NP == true
 		void led_indicate_standby() {
 			led_standby_ticks++;
@@ -560,22 +499,7 @@ int8_t  led_standby_direction = 0;
   #endif
 #endif
 
-#if MCU_VARIANT == MCU_1284P || MCU_VARIANT == MCU_2560
-	void led_indicate_not_ready() {
-		led_standby_ticks++;
-		if (led_standby_ticks > led_standby_wait) {
-			led_standby_ticks = 0;
-			if (led_standby_value <= led_standby_min) {
-				led_standby_direction = 1;
-			} else if (led_standby_value >= led_standby_max) {
-				led_standby_direction = -1;
-			}
-			led_standby_value += led_standby_direction;
-			analogWrite(pin_led_tx, led_standby_value);
-			led_rx_off();
-		}
-	}
-#elif MCU_VARIANT == MCU_ESP32 || MCU_VARIANT == MCU_NRF52
+#if MCU_VARIANT == MCU_ESP32 || MCU_VARIANT == MCU_NRF52
 	#if HAS_NP == true
     void led_indicate_not_ready() {
     	led_standby_ticks++;
@@ -636,6 +560,18 @@ int8_t  led_standby_direction = 0;
 	#endif
 #endif
 
+
+bool interface_bitrate_cmp(RadioInterface* p, RadioInterface* q) {
+    long p_bitrate = p->getBitrate();
+    long q_bitrate = q->getBitrate();
+    return p_bitrate > q_bitrate;
+}
+
+// Sort interfaces in descending order according to bitrate.
+void sort_interfaces() {
+    std::sort(std::begin(interface_obj_sorted), std::end(interface_obj_sorted), interface_bitrate_cmp);
+}
+
 void serial_write(uint8_t byte) {
 	#if HAS_BLUETOOTH || HAS_BLE == true
 		if (bt_state != BT_STATE_CONNECTED) {
@@ -668,31 +604,33 @@ void kiss_indicate_error(uint8_t error_code) {
 	serial_write(FEND);
 }
 
-void kiss_indicate_radiostate() {
+void kiss_indicate_radiostate(RadioInterface* radio) {
 	serial_write(FEND);
 	serial_write(CMD_RADIO_STATE);
-	serial_write(radio_online);
+	serial_write(radio->getRadioOnline());
 	serial_write(FEND);
 }
 
 void kiss_indicate_stat_rx() {
-	serial_write(FEND);
-	serial_write(CMD_STAT_RX);
-	escaped_serial_write(stat_rx>>24);
-	escaped_serial_write(stat_rx>>16);
-	escaped_serial_write(stat_rx>>8);
-	escaped_serial_write(stat_rx);
-	serial_write(FEND);
+    // todo, implement
+	//serial_write(FEND);
+	//serial_write(CMD_STAT_RX);
+	//escaped_serial_write(stat_rx>>24);
+	//escaped_serial_write(stat_rx>>16);
+	//escaped_serial_write(stat_rx>>8);
+	//escaped_serial_write(stat_rx);
+	//serial_write(FEND);
 }
 
 void kiss_indicate_stat_tx() {
-	serial_write(FEND);
-	serial_write(CMD_STAT_TX);
-	escaped_serial_write(stat_tx>>24);
-	escaped_serial_write(stat_tx>>16);
-	escaped_serial_write(stat_tx>>8);
-	escaped_serial_write(stat_tx);
-	serial_write(FEND);
+    // todo, implement
+	//serial_write(FEND);
+	//serial_write(CMD_STAT_TX);
+	//escaped_serial_write(stat_tx>>24);
+	//escaped_serial_write(stat_tx>>16);
+	//escaped_serial_write(stat_tx>>8);
+	//escaped_serial_write(stat_tx);
+	//serial_write(FEND);
 }
 
 void kiss_indicate_stat_rssi() {
@@ -710,24 +648,24 @@ void kiss_indicate_stat_snr() {
 	serial_write(FEND);
 }
 
-void kiss_indicate_radio_lock() {
+void kiss_indicate_radio_lock(RadioInterface* radio) {
 	serial_write(FEND);
 	serial_write(CMD_RADIO_LOCK);
-	serial_write(radio_locked);
+	serial_write(radio->getRadioLock());
 	serial_write(FEND);
 }
 
-void kiss_indicate_spreadingfactor() {
+void kiss_indicate_spreadingfactor(RadioInterface* radio) {
 	serial_write(FEND);
 	serial_write(CMD_SF);
-	serial_write((uint8_t)lora_sf);
+	serial_write(radio->getSpreadingFactor());
 	serial_write(FEND);
 }
 
-void kiss_indicate_codingrate() {
+void kiss_indicate_codingrate(RadioInterface* radio) {
 	serial_write(FEND);
 	serial_write(CMD_CR);
-	serial_write((uint8_t)lora_cr);
+	serial_write(radio->getCodingRate4());
 	serial_write(FEND);
 }
 
@@ -738,35 +676,47 @@ void kiss_indicate_implicit_length() {
 	serial_write(FEND);
 }
 
-void kiss_indicate_txpower() {
+void kiss_indicate_txpower(RadioInterface* radio) {
+    uint8_t txp = radio->getTxPower();
 	serial_write(FEND);
 	serial_write(CMD_TXPOWER);
-	serial_write((uint8_t)lora_txp);
+	serial_write(txp);
 	serial_write(FEND);
 }
 
-void kiss_indicate_bandwidth() {
+void kiss_indicate_bandwidth(RadioInterface* radio) {
+    uint32_t bw = radio->getSignalBandwidth();
 	serial_write(FEND);
 	serial_write(CMD_BANDWIDTH);
-	escaped_serial_write(lora_bw>>24);
-	escaped_serial_write(lora_bw>>16);
-	escaped_serial_write(lora_bw>>8);
-	escaped_serial_write(lora_bw);
+	escaped_serial_write(bw>>24);
+	escaped_serial_write(bw>>16);
+	escaped_serial_write(bw>>8);
+	escaped_serial_write(bw);
 	serial_write(FEND);
 }
 
-void kiss_indicate_frequency() {
+void kiss_indicate_frequency(RadioInterface* radio) {
+    uint32_t freq = radio->getFrequency();
 	serial_write(FEND);
 	serial_write(CMD_FREQUENCY);
-	escaped_serial_write(lora_freq>>24);
-	escaped_serial_write(lora_freq>>16);
-	escaped_serial_write(lora_freq>>8);
-	escaped_serial_write(lora_freq);
+	escaped_serial_write(freq>>24);
+	escaped_serial_write(freq>>16);
+	escaped_serial_write(freq>>8);
+	escaped_serial_write(freq);
 	serial_write(FEND);
 }
 
-void kiss_indicate_st_alock() {
-	uint16_t at = (uint16_t)(st_airtime_limit*100*100);
+void kiss_indicate_interface(int index) {
+    serial_write(FEND);
+    serial_write(CMD_INTERFACES);
+    // print the index to the interface and the interface type
+    serial_write(index);
+    serial_write(interfaces[index]);
+	serial_write(FEND);
+}
+
+void kiss_indicate_st_alock(RadioInterface* radio) {
+	uint16_t at = (uint16_t)(radio->getSTALock()*100*100);
 	serial_write(FEND);
 	serial_write(CMD_ST_ALOCK);
 	escaped_serial_write(at>>8);
@@ -774,8 +724,8 @@ void kiss_indicate_st_alock() {
 	serial_write(FEND);
 }
 
-void kiss_indicate_lt_alock() {
-	uint16_t at = (uint16_t)(lt_airtime_limit*100*100);
+void kiss_indicate_lt_alock(RadioInterface* radio) {
+	uint16_t at = (uint16_t)(radio->getLTALock()*100*100);
 	serial_write(FEND);
 	serial_write(CMD_LT_ALOCK);
 	escaped_serial_write(at>>8);
@@ -783,47 +733,43 @@ void kiss_indicate_lt_alock() {
 	serial_write(FEND);
 }
 
-void kiss_indicate_channel_stats() {
-	#if MCU_VARIANT == MCU_ESP32
-		uint16_t ats = (uint16_t)(airtime*100*100);
-		uint16_t atl = (uint16_t)(longterm_airtime*100*100);
-		uint16_t cls = (uint16_t)(total_channel_util*100*100);
-		uint16_t cll = (uint16_t)(longterm_channel_util*100*100);
-		serial_write(FEND);
-		serial_write(CMD_STAT_CHTM);
-		escaped_serial_write(ats>>8);
-		escaped_serial_write(ats);
-		escaped_serial_write(atl>>8);
-		escaped_serial_write(atl);
-		escaped_serial_write(cls>>8);
-		escaped_serial_write(cls);
-		escaped_serial_write(cll>>8);
-		escaped_serial_write(cll);
-		serial_write(FEND);
-	#endif
+void kiss_indicate_channel_stats(RadioInterface* radio) {
+    uint16_t ats = (uint16_t)(radio->getAirtime()*100*100);
+    uint16_t atl = (uint16_t)(radio->getLongtermAirtime()*100*100);
+    uint16_t cls = (uint16_t)(radio->getTotalChannelUtil()*100*100);
+    uint16_t cll = (uint16_t)(radio->getLongtermChannelUtil()*100*100);
+    serial_write(FEND);
+    serial_write(CMD_STAT_CHTM);
+    escaped_serial_write(ats>>8);
+    escaped_serial_write(ats);
+    escaped_serial_write(atl>>8);
+    escaped_serial_write(atl);
+    escaped_serial_write(cls>>8);
+    escaped_serial_write(cls);
+    escaped_serial_write(cll>>8);
+    escaped_serial_write(cll);
+    serial_write(FEND);
 }
 
-void kiss_indicate_phy_stats() {
-	#if MCU_VARIANT == MCU_ESP32
-		uint16_t lst = (uint16_t)(lora_symbol_time_ms*1000);
-		uint16_t lsr = (uint16_t)(lora_symbol_rate);
-		uint16_t prs = (uint16_t)(lora_preamble_symbols+4);
-		uint16_t prt = (uint16_t)((lora_preamble_symbols+4)*lora_symbol_time_ms);
-		uint16_t cst = (uint16_t)(csma_slot_ms);
-		serial_write(FEND);
-		serial_write(CMD_STAT_PHYPRM);
-		escaped_serial_write(lst>>8);
-		escaped_serial_write(lst);
-		escaped_serial_write(lsr>>8);
-		escaped_serial_write(lsr);
-		escaped_serial_write(prs>>8);
-		escaped_serial_write(prs);
-		escaped_serial_write(prt>>8);
-		escaped_serial_write(prt);
-		escaped_serial_write(cst>>8);
-		escaped_serial_write(cst);
-		serial_write(FEND);
-	#endif
+void kiss_indicate_phy_stats(RadioInterface* radio) {
+    uint16_t lst = (uint16_t)(radio->getSymbolTime()*1000);
+    uint16_t lsr = (uint16_t)(radio->getSymbolRate());
+    uint16_t prs = (uint16_t)(radio->getPreambleLength()+4);
+    uint16_t prt = (uint16_t)((radio->getPreambleLength()+4)*radio->getSymbolTime());
+    uint16_t cst = (uint16_t)(radio->getCSMASlotMS());
+    serial_write(FEND);
+    serial_write(CMD_STAT_PHYPRM);
+    escaped_serial_write(lst>>8);
+    escaped_serial_write(lst);
+    escaped_serial_write(lsr>>8);
+    escaped_serial_write(lsr);
+    escaped_serial_write(prs>>8);
+    escaped_serial_write(prs);
+    escaped_serial_write(prt>>8);
+    escaped_serial_write(prt);
+    escaped_serial_write(cst>>8);
+    escaped_serial_write(cst);
+    serial_write(FEND);
 }
 
 void kiss_indicate_battery() {
@@ -1009,43 +955,6 @@ inline uint8_t packetSequence(uint8_t header) {
 	return header >> 4;
 }
 
-void setPreamble() {
-	if (radio_online) LoRa->setPreambleLength(lora_preamble_symbols);
-	kiss_indicate_phy_stats();
-}
-
-void updateBitrate() {
-	#if MCU_VARIANT == MCU_ESP32 || MCU_VARIANT == MCU_NRF52
-		if (radio_online) {
-			lora_symbol_rate = (float)lora_bw/(float)(pow(2, lora_sf));
-			lora_symbol_time_ms = (1.0/lora_symbol_rate)*1000.0;
-			lora_bitrate = (uint32_t)(lora_sf * ( (4.0/(float)lora_cr) / ((float)(pow(2, lora_sf))/((float)lora_bw/1000.0)) ) * 1000.0);
-			lora_us_per_byte = 1000000.0/((float)lora_bitrate/8.0);
-			// csma_slot_ms = lora_symbol_time_ms*10;
-			float target_preamble_symbols = (LORA_PREAMBLE_TARGET_MS/lora_symbol_time_ms)-LORA_PREAMBLE_SYMBOLS_HW;
-			if (target_preamble_symbols < LORA_PREAMBLE_SYMBOLS_MIN) {
-				target_preamble_symbols = LORA_PREAMBLE_SYMBOLS_MIN;
-			} else {
-				target_preamble_symbols = ceil(target_preamble_symbols);
-			}
-			lora_preamble_symbols = (long)target_preamble_symbols;
-			setPreamble();
-		} else {
-			lora_bitrate = 0;
-		}
-	#endif
-}
-
-void setSpreadingFactor() {
-	if (radio_online) LoRa->setSpreadingFactor(lora_sf);
-	updateBitrate();
-}
-
-void setCodingRate() {
-	if (radio_online) LoRa->setCodingRate4(lora_cr);
-	updateBitrate();
-}
-
 void set_implicit_length(uint8_t len) {
 	implicit_l = len;
 	if (implicit_l != 0) {
@@ -1055,74 +964,116 @@ void set_implicit_length(uint8_t len) {
 	}
 }
 
-int getTxPower() {
-	uint8_t txp = LoRa->getTxPower();
-	return (int)txp;
+void setTXPower(RadioInterface* radio, int txp) {
+    if (model == MODEL_11) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
+    if (model == MODEL_12) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
+
+    if (model == MODEL_A1) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_A2) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_A3) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
+    if (model == MODEL_A4) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
+    if (model == MODEL_A6) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_A7) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_A8) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_A9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+
+    if (model == MODEL_B3) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_B4) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_B8) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_B9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+
+    if (model == MODEL_C4) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_C9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+
+    if (model == MODEL_E4) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_E9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_E3) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_E8) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+
+    if (model == MODEL_FE) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_FF) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
 }
 
-void setTXPower() {
-	if (radio_online) {
-		if (model == MODEL_A1) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-		if (model == MODEL_A2) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-		if (model == MODEL_A3) LoRa->setTxPower(lora_txp, PA_OUTPUT_RFO_PIN);
-		if (model == MODEL_A4) LoRa->setTxPower(lora_txp, PA_OUTPUT_RFO_PIN);
-		if (model == MODEL_A6) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-		if (model == MODEL_A7) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-		if (model == MODEL_A8) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-		if (model == MODEL_A9) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-
-		if (model == MODEL_B3) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-		if (model == MODEL_B4) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-		if (model == MODEL_B8) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-		if (model == MODEL_B9) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-
-		if (model == MODEL_C4) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-		if (model == MODEL_C9) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-
-		if (model == MODEL_E4) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-		if (model == MODEL_E9) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-		if (model == MODEL_E3) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-		if (model == MODEL_E8) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-
-		if (model == MODEL_FE) LoRa->setTxPower(lora_txp, PA_OUTPUT_PA_BOOST_PIN);
-		if (model == MODEL_FF) LoRa->setTxPower(lora_txp, PA_OUTPUT_RFO_PIN);
-	}
-}
-
-
-void getBandwidth() {
-	if (radio_online) {
-			lora_bw = LoRa->getSignalBandwidth();
-	}
-	updateBitrate();
-}
-
-void setBandwidth() {
-	if (radio_online) {
-		LoRa->setSignalBandwidth(lora_bw);
-		getBandwidth();
-	}
-}
-
-void getFrequency() {
-	if (radio_online) {
-		lora_freq = LoRa->getFrequency();
-	}
-}
-
-void setFrequency() {
-	if (radio_online) {
-		LoRa->setFrequency(lora_freq);
-		getFrequency();
-	}
-}
-
-uint8_t getRandom() {
-	if (radio_online) {
-		return LoRa->random();
+uint8_t getRandom(RadioInterface* radio) {
+	if (radio->getRadioOnline()) {
+		return radio->random();
 	} else {
 		return 0x00;
 	}
+}
+
+uint8_t getInterfaceIndex(uint8_t byte) {
+    switch (byte) {
+        case CMD_INT0_DATA:
+        case CMD_SEL_INT0:
+            return 0;
+        case CMD_INT1_DATA:
+        case CMD_SEL_INT1:
+            return 1;
+        case CMD_INT2_DATA:
+        case CMD_SEL_INT2:
+            return 2;
+        case CMD_INT3_DATA:
+        case CMD_SEL_INT3:
+            return 3;
+        case CMD_INT4_DATA:
+        case CMD_SEL_INT4:
+            return 4;
+        case CMD_INT5_DATA:
+        case CMD_SEL_INT5:
+            return 5;
+        case CMD_INT6_DATA:
+        case CMD_SEL_INT6:
+            return 6;
+        case CMD_INT7_DATA:
+        case CMD_SEL_INT7:
+            return 7;
+        case CMD_INT8_DATA:
+        case CMD_SEL_INT8:
+            return 8;
+        case CMD_INT9_DATA:
+        case CMD_SEL_INT9:
+            return 9;
+        case CMD_INT10_DATA:
+        case CMD_SEL_INT10:
+            return 10;
+        case CMD_INT11_DATA:
+        case CMD_SEL_INT11:
+            return 11;
+        default:
+            return 0;
+    }
+}
+
+uint8_t getInterfaceCommandByte(uint8_t index) {
+    switch (index) {
+        case 0:
+            return CMD_INT0_DATA;
+        case 1:
+            return CMD_INT1_DATA;
+        case 2:
+            return CMD_INT2_DATA;
+        case 3:
+            return CMD_INT3_DATA;
+        case 4:
+            return CMD_INT4_DATA;
+        case 5:
+            return CMD_INT5_DATA;
+        case 6:
+            return CMD_INT6_DATA;
+        case 7:
+            return CMD_INT7_DATA;
+        case 8:
+            return CMD_INT8_DATA;
+        case 9:
+            return CMD_INT9_DATA;
+        case 10:
+            return CMD_INT10_DATA;
+        case 11:
+            return CMD_INT11_DATA;
+        default:
+            return 0;
+    }
 }
 
 void promisc_enable() {
@@ -1228,9 +1179,7 @@ void eeprom_flush() {
 #endif
 
 void eeprom_update(int mapped_addr, uint8_t byte) {
-	#if MCU_VARIANT == MCU_1284P || MCU_VARIANT == MCU_2560
-		EEPROM.update(mapped_addr, byte);
-	#elif MCU_VARIANT == MCU_ESP32
+	#if MCU_VARIANT == MCU_ESP32
 		if (EEPROM.read(mapped_addr) != byte) {
 			EEPROM.write(mapped_addr, byte);
 			EEPROM.commit();
@@ -1297,9 +1246,7 @@ bool eeprom_product_valid() {
 	    uint8_t rval = eeprom_read(eeprom_addr(ADDR_PRODUCT));
     #endif
 
-	#if PLATFORM == PLATFORM_AVR
-	if (rval == PRODUCT_RNODE || rval == PRODUCT_HMBRW) {
-	#elif PLATFORM == PLATFORM_ESP32
+	#if PLATFORM == PLATFORM_ESP32
 	if (rval == PRODUCT_RNODE || rval == BOARD_RNODE_NG_20 || rval == BOARD_RNODE_NG_21 || rval == PRODUCT_HMBRW || rval == PRODUCT_TBEAM || rval == PRODUCT_T32_10 || rval == PRODUCT_T32_20 || rval == PRODUCT_T32_21 || rval == PRODUCT_H32_V2 || rval == PRODUCT_H32_V3) {
 	#elif PLATFORM == PLATFORM_NRF52
 	if (rval == PRODUCT_RAK4631 || rval == PRODUCT_HMBRW) {
@@ -1434,39 +1381,51 @@ bool eeprom_have_conf() {
 	}
 }
 
-void eeprom_conf_load() {
+void eeprom_conf_load(RadioInterface* radio) {
 	if (eeprom_have_conf()) {
+        if (!(radio->getRadioOnline())) {
         #if HAS_EEPROM
-            lora_sf = EEPROM.read(eeprom_addr(ADDR_CONF_SF));
-            lora_cr = EEPROM.read(eeprom_addr(ADDR_CONF_CR));
-            lora_txp = EEPROM.read(eeprom_addr(ADDR_CONF_TXP));
-            lora_freq = (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x00) << 24 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x01) << 16 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x02) << 8 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x03);
-            lora_bw = (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x00) << 24 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x01) << 16 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x02) << 8 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x03);
+            uint8_t sf = EEPROM.read(eeprom_addr(ADDR_CONF_SF));
+            uint8_t cr = EEPROM.read(eeprom_addr(ADDR_CONF_CR));
+            uint8_t txp = EEPROM.read(eeprom_addr(ADDR_CONF_TXP));
+            uint32_t freq = (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x00) << 24 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x01) << 16 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x02) << 8 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x03);
+            uint32_t bw = (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x00) << 24 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x01) << 16 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x02) << 8 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x03);
         #elif MCU_VARIANT == MCU_NRF52
-            lora_sf = eeprom_read(eeprom_addr(ADDR_CONF_SF));
-            lora_cr = eeprom_read(eeprom_addr(ADDR_CONF_CR));
-            lora_txp = eeprom_read(eeprom_addr(ADDR_CONF_TXP));
-            lora_freq = (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x00) << 24 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x01) << 16 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x02) << 8 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x03);
-            lora_bw = (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x00) << 24 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x01) << 16 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x02) << 8 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x03);
+            uint8_t sf = eeprom_read(eeprom_addr(ADDR_CONF_SF));
+            uint8_t cr = eeprom_read(eeprom_addr(ADDR_CONF_CR));
+            uint8_t txp = eeprom_read(eeprom_addr(ADDR_CONF_TXP));
+            uint32_t freq = (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x00) << 24 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x01) << 16 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x02) << 8 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x03);
+            uint32_t bw = (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x00) << 24 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x01) << 16 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x02) << 8 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x03);
         #endif
+            radio->setSpreadingFactor(sf);
+            radio->setCodingRate4(cr);
+            setTXPower(radio, txp);
+            radio->setFrequency(freq);
+            radio->setSignalBandwidth(bw);
+            radio->updateBitrate();
+        }
 	}
 }
 
-void eeprom_conf_save() {
-	if (hw_ready && radio_online) {
-		eeprom_update(eeprom_addr(ADDR_CONF_SF), lora_sf);
-		eeprom_update(eeprom_addr(ADDR_CONF_CR), lora_cr);
-		eeprom_update(eeprom_addr(ADDR_CONF_TXP), lora_txp);
+void eeprom_conf_save(RadioInterface* radio) {
+	if (hw_ready && radio->getRadioOnline()) {
+		eeprom_update(eeprom_addr(ADDR_CONF_SF), radio->getSpreadingFactor());
+		eeprom_update(eeprom_addr(ADDR_CONF_CR), radio->getCodingRate4());
+		eeprom_update(eeprom_addr(ADDR_CONF_TXP), radio->getTxPower());
 
-		eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x00, lora_bw>>24);
-		eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x01, lora_bw>>16);
-		eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x02, lora_bw>>8);
-		eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x03, lora_bw);
+        uint32_t bw = radio->getSignalBandwidth();
 
-		eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x00, lora_freq>>24);
-		eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x01, lora_freq>>16);
-		eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x02, lora_freq>>8);
-		eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x03, lora_freq);
+		eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x00, bw>>24);
+		eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x01, bw>>16);
+		eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x02, bw>>8);
+		eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x03, bw);
+
+        uint32_t freq = radio->getFrequency();
+
+		eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x00, freq>>24);
+		eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x01, freq>>16);
+		eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x02, freq>>8);
+		eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x03, freq);
 
 		eeprom_update(eeprom_addr(ADDR_CONF_OK), CONF_OK_BYTE);
 		led_indicate_info(10);
@@ -1482,18 +1441,6 @@ void eeprom_conf_delete() {
 void unlock_rom() {
 	led_indicate_error(50);
 	eeprom_erase();
-}
-
-void init_channel_stats() {
-	#if MCU_VARIANT == MCU_ESP32
-		for (uint16_t ai = 0; ai < DCD_SAMPLES; ai++) { util_samples[ai] = false; }
-		for (uint16_t ai = 0; ai < AIRTIME_BINS; ai++) { airtime_bins[ai] = 0; }
-		for (uint16_t ai = 0; ai < AIRTIME_BINS; ai++) { longterm_bins[ai] = 0.0; }
-		local_channel_util = 0.0;
-		total_channel_util = 0.0;
-		airtime = 0.0;
-		longterm_airtime = 0.0;
-	#endif
 }
 
 typedef struct FIFOBuffer
