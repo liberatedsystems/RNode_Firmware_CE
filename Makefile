@@ -37,6 +37,7 @@ prep-samd:
 
 prep-nrf:
 	arduino-cli core update-index --config-file arduino-cli.yaml
+	arduino-cli core install adafruit:nrf52 --config-file arduino-cli.yaml
 	arduino-cli core install rakwireless:nrf52 --config-file arduino-cli.yaml
 	arduino-cli lib install "Crypto"
 	arduino-cli lib install "Adafruit GFX Library"
@@ -61,6 +62,9 @@ firmware-tbeam:
 
 firmware-tbeam_sx126x:
 	arduino-cli compile --fqbn esp32:esp32:t-beam -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x33\" \"-DMODEM=0x03\""
+
+firmware-techo:
+	arduino-cli compile --fqbn adafruit:nrf52:pca10056 -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x43\""
 
 firmware-t3s3_sx1262:
 	arduino-cli compile --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc" -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x42\" \"-DBOARD_VARIANT=0xA1\""

@@ -29,6 +29,7 @@
   #define BOARD_RNODE         0x31
   #define BOARD_HMBRW         0x32
   #define BOARD_TBEAM         0x33
+  #define BOARD_TECHO         0x43
   #define BOARD_HUZZAH32      0x34
   #define BOARD_GENERIC_ESP32 0x35
   #define BOARD_LORA32_V2_0   0x36
@@ -50,7 +51,7 @@
   #if defined(ESP32)
     #define PLATFORM PLATFORM_ESP32
     #define MCU_VARIANT MCU_ESP32
-  #elif defined(NRF52840_XXAA)
+  #elif defined(NRF52840_XXAA) || defined(_VARIANT_PCA10056_)
     #include <variant.h>
     #define PLATFORM PLATFORM_NRF52
     #define MCU_VARIANT MCU_NRF52
@@ -629,7 +630,60 @@
     #endif
   
   #elif MCU_VARIANT == MCU_NRF52
-    #if BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_FREENODE
+    #if BOARD_MODEL == BOARD_TECHO
+    #define EEPROM_SIZE 296
+    #define EEPROM_OFFSET EEPROM_SIZE-EEPROM_RESERVED
+  /*    #define HAS_EEPROM false
+      #define HAS_DISPLAY false
+      #define DISPLAY EINK_BW
+      #define HAS_BLUETOOTH false
+      #define HAS_BLE false
+      #define HAS_CONSOLE false
+      #define HAS_PMU false
+      #define HAS_NP false
+      #define HAS_SD false
+      #define CONFIG_UART_BUFFER_SIZE 40000
+      #define CONFIG_QUEUE_0_SIZE 6144
+      #define CONFIG_QUEUE_MAX_LENGTH 200
+      #define BLE_MANUFACTURER "LilyGO"
+      #define BLE_MODEL "T-Echo"
+      */
+      #define INTERFACE_COUNT 1
+      // first interface in list is the primary
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX126X};
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+                  // SX1262
+          {
+              false, // DEFAULT_SPI
+              true, // HAS_TCXO
+              true  // DIO2_AS_RF_SWITCH
+          }
+      };
+      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+                  // SX1262
+          {
+              42, // pin_ss
+              43, // pin_sclk
+              44, // pin_mosi
+              45, // pin_miso
+              46, // pin_busy
+              47, // pin_dio
+              38, // pin_reset
+              -1, // pin_txen
+              37, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
+
+      //const int pin_disp_cs = SS;
+      //const int pin_disp_dc = WB_IO1;
+      //const int pin_disp_reset = -1;
+      //const int pin_disp_busy = WB_IO4;
+      //const int pin_disp_en = WB_IO2;
+
+      const int pin_led_rx = LED_BLUE;
+      const int pin_led_tx = LED_RED;
+    #elif BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_FREENODE
       #define HAS_EEPROM false
       #define HAS_DISPLAY true
       #define DISPLAY EINK_BW
