@@ -138,6 +138,11 @@ unsigned char fb[512];
 uint32_t last_disp_update = 0;
 int disp_update_interval = 1000/disp_target_fps;
 
+#define SCREENSAVER_TIME 500 // ms
+#define SCREENSAVER_INTERVAL 600000 // ms
+uint32_t last_screensaver = 0;
+bool screensaver_enabled = false;
+
 uint32_t last_page_flip = 0;
 uint32_t last_interface_page_flip = 0;
 int page_interval = 4000;
@@ -1123,6 +1128,7 @@ void update_display(bool blank = false) {
 
       uint32_t current = millis();
       // Invert display to protect against OLED screen burn in
+<<<<<<< HEAD
       if (screensaver_enabled) {
           if (current-last_screensaver >= screensaver_interval+SCREENSAVER_TIME) {
               display.invertDisplay(0);
@@ -1131,6 +1137,14 @@ void update_display(bool blank = false) {
           }
       }
       else if (current-last_screensaver >= screensaver_interval) {
+=======
+      if (millis()-last_screensaver >= SCREENSAVER_INTERVAL+SCREENSAVER_TIME && screensaver_enabled) {
+            display.invertDisplay(0);
+            last_screensaver = millis();
+            screensaver_enabled = false;
+      }
+      else if (millis()-last_screensaver >= SCREENSAVER_INTERVAL) {
+>>>>>>> 8686ee7 (makes SCREENSAVER_INTERVAL a #define to save some ram)
         display.invertDisplay(1);
         screensaver_enabled = true;
       }
