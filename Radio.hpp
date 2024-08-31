@@ -11,6 +11,7 @@
 #include <SPI.h>
 #include "Interfaces.h"
 #include "Boards.h"
+#include "src/misc/FIFOBuffer.h"
 
 #define MAX_PKT_LENGTH                255
 
@@ -128,7 +129,6 @@ public:
 
     virtual void updateBitrate() = 0;
     virtual void handleDio0Rise() = 0;
-    virtual void clearIRQStatus() = 0;
     uint32_t getBitrate() { return _bitrate; };
     uint8_t getIndex() { return _index; };
     void setRadioLock(bool lock) { _radio_locked = lock; };
@@ -421,7 +421,6 @@ private:
   void reset(void);
   void calibrate(void);
   void calibrate_image(uint32_t frequency);
-  void clearIRQStatus();
 
 private:
   SPISettings _spiSettings;
@@ -511,7 +510,6 @@ public:
   void updateBitrate();
 
   void handleDio0Rise();
-  void clearIRQStatus();
 private:
   void setSyncWord(uint8_t sw);
   void explicitHeaderMode();
@@ -608,7 +606,6 @@ public:
 
   void handleDio0Rise();
 
-  void clearIRQStatus();
 private:
   void writeBuffer(const uint8_t* buffer, size_t size);
   void readBuffer(uint8_t* buffer, size_t size);

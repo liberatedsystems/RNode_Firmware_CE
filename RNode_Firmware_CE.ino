@@ -18,7 +18,8 @@
 #include "Utilities.h"
 
 #if MCU_VARIANT == MCU_NRF52 
-        #define INTERFACE_SPI
+  #define INTERFACE_SPI
+  #if BOARD_MODEL == BOARD_RAK4631
         // Required because on RAK4631, non-default SPI pins must be initialised when class is declared.
       SPIClass interface_spi[1] = {
             // SX1262
@@ -29,6 +30,17 @@
                 interface_pins[0][2]
                )
       };
+  #elif BOARD_MODEL == BOARD_TECHO
+    SPIClass interface_spi[1] = {
+            // SX1262
+            SPIClass(
+                NRF_SPIM3, 
+                interface_pins[0][3], 
+                interface_pins[0][1], 
+                interface_pins[0][2]
+               )
+      };
+  #endif
 #endif
 
 #ifndef INTERFACE_SPI
@@ -65,9 +77,6 @@ volatile bool serial_buffering = false;
 char sbuf[128];
 
 bool packet_ready = false;
-
-volatile bool process_packet = false;
-volatile uint8_t packet_interface = 0;
 
 uint8_t *packet_queue[INTERFACE_COUNT];
 
@@ -140,6 +149,10 @@ void setup() {
       packet_queue[i] = (uint8_t*)malloc(getQueueSize(i)+1);
   }
 
+  memset(packet_rdy_interfaces_buf, 0, sizeof(packet_rdy_interfaces_buf));
+
+  fifo_init(&packet_rdy_interfaces, packet_rdy_interfaces_buf, MAX_INTERFACES);
+
   // Create and configure interface objects
   for (uint8_t i = 0; i < INTERFACE_COUNT; i++) {
       switch (interfaces[i]) {
@@ -155,10 +168,10 @@ void setup() {
                 interface_pins[i][5], interface_pins[i][4], interface_pins[i][8]);
               }
               else {
-            obj = new sx126x(i, &interface_spi[i], interface_cfg[i][1],
-            interface_cfg[i][2], interface_pins[i][0], interface_pins[i][1],
-            interface_pins[i][2], interface_pins[i][3], interface_pins[i][6],
-            interface_pins[i][5], interface_pins[i][4], interface_pins[i][8]);
+                obj = new sx126x(i, &interface_spi[i], interface_cfg[i][1],
+                interface_cfg[i][2], interface_pins[i][0], interface_pins[i][1],
+                interface_pins[i][2], interface_pins[i][3], interface_pins[i][6],
+                interface_pins[i][5], interface_pins[i][4], interface_pins[i][8]);
               }
             interface_obj[i] = obj;
             interface_obj_sorted[i] = obj;
@@ -172,14 +185,14 @@ void setup() {
               sx127x* obj;
               // if default spi enabled
               if (interface_cfg[i][0]) {
-            obj = new sx127x(i, &SPI, interface_pins[i][0],
-            interface_pins[i][1], interface_pins[i][2], interface_pins[i][3],
-            interface_pins[i][6], interface_pins[i][5], interface_pins[i][4]);
+                obj = new sx127x(i, &SPI, interface_pins[i][0],
+                interface_pins[i][1], interface_pins[i][2], interface_pins[i][3],
+                interface_pins[i][6], interface_pins[i][5], interface_pins[i][4]);
               }
               else {
-            obj = new sx127x(i, &interface_spi[i], interface_pins[i][0],
-            interface_pins[i][1], interface_pins[i][2], interface_pins[i][3],
-            interface_pins[i][6], interface_pins[i][5], interface_pins[i][4]);
+                obj = new sx127x(i, &interface_spi[i], interface_pins[i][0],
+                interface_pins[i][1], interface_pins[i][2], interface_pins[i][3],
+                interface_pins[i][6], interface_pins[i][5], interface_pins[i][4]);
               }
             interface_obj[i] = obj;
             interface_obj_sorted[i] = obj;
@@ -189,19 +202,19 @@ void setup() {
           case SX128X:
           case SX1280:
           {
-              sx128x* obj;
-              // if default spi enabled
-              if (interface_cfg[i][0]) {
-            obj = new sx128x(i, &SPI, interface_cfg[i][1],
-            interface_pins[i][0], interface_pins[i][1], interface_pins[i][2],
-            interface_pins[i][3], interface_pins[i][6], interface_pins[i][5],
-            interface_pins[i][4], interface_pins[i][8], interface_pins[i][7]);
+            sx128x* obj;
+            // if default spi enabled
+            if (interface_cfg[i][0]) {
+              obj = new sx128x(i, &SPI, interface_cfg[i][1],
+              interface_pins[i][0], interface_pins[i][1], interface_pins[i][2],
+              interface_pins[i][3], interface_pins[i][6], interface_pins[i][5],
+              interface_pins[i][4], interface_pins[i][8], interface_pins[i][7]);
             }
             else {
-            obj = new sx128x(i, &interface_spi[i], interface_cfg[i][1],
-            interface_pins[i][0], interface_pins[i][1], interface_pins[i][2],
-            interface_pins[i][3], interface_pins[i][6], interface_pins[i][5],
-            interface_pins[i][4], interface_pins[i][8], interface_pins[i][7]);
+              obj = new sx128x(i, &interface_spi[i], interface_cfg[i][1],
+              interface_pins[i][0], interface_pins[i][1], interface_pins[i][2],
+              interface_pins[i][3], interface_pins[i][6], interface_pins[i][5],
+              interface_pins[i][4], interface_pins[i][8], interface_pins[i][7]);
             }
             interface_obj[i] = obj;
             interface_obj_sorted[i] = obj;
@@ -273,7 +286,7 @@ void setup() {
     update_display();
   #endif
 
-    #if HAS_PMU == true
+    #if HAS_PMU
       pmu_ready = init_pmu();
     #endif
 
@@ -330,7 +343,7 @@ inline void getPacketData(RadioInterface* radio, uint16_t len) {
   }
 }
 
-void ISR_VECT receive_callback(uint8_t index, int packet_size) {
+void receive_callback(uint8_t index, int packet_size) {
   if (!promisc) {
     selected_radio = interface_obj[index];
 
@@ -399,12 +412,30 @@ void ISR_VECT receive_callback(uint8_t index, int packet_size) {
     getPacketData(selected_radio, packet_size);
     packet_ready = true;
   }
+
+  if (packet_ready) {
+        #if MCU_VARIANT == MCU_ESP32
+        portENTER_CRITICAL(&update_lock);
+        #elif MCU_VARIANT == MCU_NRF52
+        portENTER_CRITICAL();
+        #endif
+        last_rssi = selected_radio->packetRssi();
+        last_snr_raw = selected_radio->packetSnrRaw();
+        #if MCU_VARIANT == MCU_ESP32
+        portEXIT_CRITICAL(&update_lock);
+        #elif MCU_VARIANT == MCU_NRF52
+        portEXIT_CRITICAL();
+        #endif
+        kiss_indicate_stat_rssi();
+        kiss_indicate_stat_snr();
+        kiss_write_packet(index);
+  }
   last_rx = millis();
 }
 
 bool startRadio(RadioInterface* radio) {
   update_radio_lock(radio);
-  
+
   if (modems_installed && !console_active) {
     if (!radio->getRadioLock() && hw_ready) {
       if (!radio->begin()) {
@@ -914,7 +945,7 @@ void serialCallback(uint8_t sbyte) {
     } else if (command == CMD_CONF_DELETE) {
       eeprom_conf_delete();
     } else if (command == CMD_FB_EXT) {
-      #if HAS_DISPLAY == true
+      #if HAS_DISPLAY
         if (sbyte == 0xFF) {
           kiss_indicate_fbstate();
         } else if (sbyte == 0x00) {
@@ -1156,7 +1187,7 @@ void validate_status() {
 }
 
 void loop() {
-      packet_poll();
+    packet_poll();
 
     bool ready = false;
     for (int i = 0; i < INTERFACE_COUNT; i++) {
@@ -1170,25 +1201,6 @@ void loop() {
 
   // If at least one radio is online then we can continue
   if (ready) {
-      if (packet_ready) {
-        selected_radio = interface_obj[packet_interface];
-        #if MCU_VARIANT == MCU_ESP32
-        portENTER_CRITICAL(&update_lock);
-        #elif MCU_VARIANT == MCU_NRF52
-        portENTER_CRITICAL();
-        #endif
-        last_rssi = selected_radio->packetRssi();
-        last_snr_raw = selected_radio->packetSnrRaw();
-        #if MCU_VARIANT == MCU_ESP32
-        portEXIT_CRITICAL(&update_lock);
-        #elif MCU_VARIANT == MCU_NRF52
-        portEXIT_CRITICAL();
-        #endif
-        kiss_indicate_stat_rssi();
-        kiss_indicate_stat_snr();
-        kiss_write_packet(packet_interface);
-      }
-        
     for (int i = 0; i < INTERFACE_COUNT; i++) {
         selected_radio = interface_obj_sorted[i];
 
@@ -1201,7 +1213,7 @@ void loop() {
         // loop, it still needs to be the first to transmit, so check if this
         // is the case.
         for (int j = 0; j < INTERFACE_COUNT; j++) {
-            if (!interface_obj_sorted[j]->calculateALock() || interface_obj_sorted[j]->getRadioOnline()) {
+            if (!interface_obj_sorted[j]->calculateALock() && interface_obj_sorted[j]->getRadioOnline()) {
                 if (interface_obj_sorted[j]->getBitrate() > selected_radio->getBitrate()) {
                     if (queue_height[interface_obj_sorted[j]->getIndex()] > 0) {
                         selected_radio = interface_obj_sorted[j];
@@ -1321,23 +1333,22 @@ void poll_buffers() {
 }
 
 void packet_poll() {
-    #if MCU_VARIANT == MCU_ESP32
-    portENTER_CRITICAL(&update_lock);
-    #elif MCU_VARIANT == MCU_NRF52
-    portENTER_CRITICAL();
-    #endif
     // If we have received a packet on an interface which needs to be processed
-    if (process_packet) {
-        selected_radio = interface_obj[packet_interface];
-        selected_radio->clearIRQStatus();
+    while (!fifo_isempty(&packet_rdy_interfaces)) {
+        #if MCU_VARIANT == MCU_ESP32
+        portENTER_CRITICAL(&update_lock);
+        #elif MCU_VARIANT == MCU_NRF52
+        portENTER_CRITICAL();
+        #endif
+        uint8_t packet_int = fifo_pop(&packet_rdy_interfaces);
+        selected_radio = interface_obj[packet_int];
+        #if MCU_VARIANT == MCU_ESP32
+        portEXIT_CRITICAL(&update_lock);
+        #elif MCU_VARIANT == MCU_NRF52
+        portEXIT_CRITICAL();
+        #endif
         selected_radio->handleDio0Rise();
-        process_packet = false;
     }
-    #if MCU_VARIANT == MCU_ESP32
-    portEXIT_CRITICAL(&update_lock);
-    #elif MCU_VARIANT == MCU_NRF52
-    portEXIT_CRITICAL();
-    #endif
 }
 
 volatile bool serial_polling = false;

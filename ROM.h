@@ -26,16 +26,18 @@
 	#define PRODUCT_T32_21 0xB1
 	#define PRODUCT_H32_V2 0xC0
 	#define PRODUCT_H32_V3 0xC1
-    #define PRODUCT_RAK4631 0x10
-	#define PRODUCT_TECHO 0x10 //THIS VALUE IS PROBABLY WRONG PLEASE CORRECT IT!!!
-    #define PRODUCT_FREENODE 0x20
-    #define MODEL_11 0x11
-    #define MODEL_12 0x12
-    #define MODEL_13 0x13 // RAK4631 LF with WisBlock SX1280 module (LIBSYS002)
-    #define MODEL_14 0x14 // RAK4631 HF with WisBlock SX1280 module (LIBSYS002)
-    #define MODEL_21 0x21 // European band, 868MHz
+	#define PRODUCT_RAK4631 0x10
+	#define PRODUCT_TECHO 0x15
+	#define PRODUCT_FREENODE 0x20
+	#define MODEL_11 0x11
+	#define MODEL_12 0x12
+	#define MODEL_13 0x13 // RAK4631 LF with WisBlock SX1280 module (LIBSYS002)
+	#define MODEL_14 0x14 // RAK4631 HF with WisBlock SX1280 module (LIBSYS002)
+	#define MODEL_16 0x16 // T-Echo 433
+	#define MODEL_17 0x17 // T-Echo 915
+	#define MODEL_21 0x21 // European band, 868MHz
 	#define MODEL_A1 0xA1
-    #define MODEL_A5 0xA5 // T3S3 SX1280 PA
+	#define MODEL_A5 0xA5 // T3S3 SX1280 PA
 	#define MODEL_A6 0xA6
 	#define MODEL_A4 0xA4
 	#define MODEL_A9 0xA9
@@ -75,7 +77,7 @@
 	#define ADDR_CONF_BW   0x9F
 	#define ADDR_CONF_FREQ 0xA3
 	#define ADDR_CONF_OK   0xA7
-	
+
 	#define ADDR_CONF_BT   0xB0
 	#define ADDR_CONF_DSET 0xB1
 	#define ADDR_CONF_DINT 0xB2

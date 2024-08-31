@@ -421,7 +421,7 @@ bool init_pmu() {
     PMU->setPowerKeyPressOffTime(XPOWERS_POWEROFF_4S);
 
     return true; 
-  #elif BOARD_MODEL == BOARD_RAK4631
+  #elif BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_FREENODE
     // board doesn't have PMU but we can measure batt voltage
 
     // prep ADC for reading battery level

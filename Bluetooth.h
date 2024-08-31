@@ -19,7 +19,7 @@
     #include "esp_bt_main.h"
     #include "esp_bt_device.h"
     BluetoothSerial SerialBT;
-  #elif HAS_BLE == true
+  #elif HAS_BLE
     #include "esp_bt_main.h"
     #include "esp_bt_device.h"
     // TODO: Remove
@@ -155,7 +155,7 @@ char bt_devname[11];
       }
     }
 
-  #elif HAS_BLE == true
+  #elif HAS_BLE
     void bt_stop() {
       if (bt_state != BT_STATE_OFF) {
         bt_allow_pairing = false;
@@ -339,7 +339,7 @@ bool bt_setup_hw() {
 
       Bluefruit.Security.setMITM(true);
       Bluefruit.Security.setPairPasskeyCallback(bt_passkey_callback);
-      Bluefruit.Periph.setConnectCallback(bt_connect_callback);
+      Bluefruit.Security.setSecuredCallback(bt_connect_callback);
       Bluefruit.Periph.setDisconnectCallback(bt_disconnect_callback);
       Bluefruit.Security.setPairCompleteCallback(bt_pairing_complete);
       const ble_gap_addr_t gap_addr = Bluefruit.getAddr();

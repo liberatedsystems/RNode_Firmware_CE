@@ -631,24 +631,28 @@
   
   #elif MCU_VARIANT == MCU_NRF52
     #if BOARD_MODEL == BOARD_TECHO
-    #define EEPROM_SIZE 296
-    #define EEPROM_OFFSET EEPROM_SIZE-EEPROM_RESERVED
-  /*    #define HAS_EEPROM false
-      #define HAS_DISPLAY false
+      //#define GPS_BAUD_RATE 115200
+      //#define PIN_GPS_TX 41
+      //#define PIN_GPS_RX 40
+      #define EEPROM_SIZE 296
+      #define EEPROM_OFFSET EEPROM_SIZE-EEPROM_RESERVED
+      //#define HAS_EEPROM true
+      //#define HAS_SD true
+      //#define HAS_DISPLAY true
+      //#define HAS_CONSOLE true
+      //#define HAS_TXCO true
       #define DISPLAY EINK_BW
-      #define HAS_BLUETOOTH false
-      #define HAS_BLE false
-      #define HAS_CONSOLE false
-      #define HAS_PMU false
-      #define HAS_NP false
-      #define HAS_SD false
+      #define HAS_BLE true
+      #define HAS_PMU true
       #define CONFIG_UART_BUFFER_SIZE 40000
       #define CONFIG_QUEUE_0_SIZE 6144
       #define CONFIG_QUEUE_MAX_LENGTH 200
       #define BLE_MANUFACTURER "LilyGO"
       #define BLE_MODEL "T-Echo"
-      */
       #define INTERFACE_COUNT 1
+      //#define I2C_SDA 26
+      //#define I2C_SCL 27
+      #define CONFIG_QUEUE_1_SIZE 40000
       // first interface in list is the primary
       const uint8_t interfaces[INTERFACE_COUNT] = {SX126X};
       const bool interface_cfg[INTERFACE_COUNT][3] = { 
@@ -659,27 +663,28 @@
               true  // DIO2_AS_RF_SWITCH
           }
       };
+
       const int8_t interface_pins[INTERFACE_COUNT][10] = { 
                   // SX1262
           {
-              42, // pin_ss
-              43, // pin_sclk
-              44, // pin_mosi
-              45, // pin_miso
-              46, // pin_busy
-              47, // pin_dio
-              38, // pin_reset
+              24, // pin_ss 
+              19, // pin_sclk
+              22, // pin_mosi
+              23, // pin_miso
+              17, // pin_busy
+              20, // pin_dio
+              25, // pin_reset
               -1, // pin_txen
-              37, // pin_rxen
-              -1  // pin_tcxo_enable
+              -1, // pin_rxen
+              21  // pin_tcxo_enable
           }
       };
 
-      //const int pin_disp_cs = SS;
-      //const int pin_disp_dc = WB_IO1;
-      //const int pin_disp_reset = -1;
-      //const int pin_disp_busy = WB_IO4;
-      //const int pin_disp_en = WB_IO2;
+      const int pin_disp_cs = 30;
+      const int pin_disp_dc = 28;
+      const int pin_disp_reset = 2;
+      const int pin_disp_busy = 3;
+      const int pin_disp_en = 43;
 
       const int pin_led_rx = LED_BLUE;
       const int pin_led_tx = LED_RED;

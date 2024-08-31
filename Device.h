@@ -283,7 +283,7 @@ bool device_init() {
     mbedtls_md_init(&ctx);
     mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 0);
     mbedtls_md_starts(&ctx);
-    #if HAS_BLUETOOTH == true || HAS_BLE == true
+    #if HAS_BLUETOOTH || HAS_BLE
       mbedtls_md_update(&ctx, dev_bt_mac, BT_DEV_ADDR_LEN);
     #else
       // TODO: Get from BLE stack instead
@@ -300,7 +300,7 @@ bool device_init() {
 
     hash.begin(CRYS_HASH_SHA256_mode);
 
-    #if HAS_BLUETOOTH == true || HAS_BLE == true
+    #if HAS_BLUETOOTH || HAS_BLE
       hash.update(dev_bt_mac, BT_DEV_ADDR_LEN);
     #else
       // TODO: Get from BLE stack instead

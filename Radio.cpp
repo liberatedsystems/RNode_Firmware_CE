@@ -88,8 +88,7 @@
 #define FREQ_DIV_6X (double)pow(2.0, 25.0)
 #define FREQ_STEP_6X (double)(XTAL_FREQ_6X / FREQ_DIV_6X)
 
-extern bool process_packet;
-extern uint8_t packet_interface;
+extern FIFOBuffer packet_rdy_interfaces;
 extern RadioInterface* interface_obj[];
 
 // ISRs cannot provide parameters to the functions they call. Since we have
@@ -99,9 +98,7 @@ extern RadioInterface* interface_obj[];
 void ISR_VECT onDio0Rise() {
     for (int i = 0; i < INTERFACE_COUNT; i++) {
         if (digitalRead(interface_pins[i][5]) == HIGH) {
-            process_packet = true;
-            packet_interface = i;
-            break;
+            fifo_push(&packet_rdy_interfaces, i);
         }
     }
 }
@@ -735,6 +732,8 @@ void sx126x::enableTCXO() {
       uint8_t buf[4] = {MODE_TCXO_3_3V_6X, 0x00, 0x00, 0xFF};
     #elif BOARD_MODEL == BOARD_TBEAM
       uint8_t buf[4] = {MODE_TCXO_1_8V_6X, 0x00, 0x00, 0xFF};
+    #elif BOARD_MODEL == BOARD_TECHO
+      uint8_t buf[4] = {MODE_TCXO_1_8V_6X, 0x00, 0x00, 0xFF};
     #elif BOARD_MODEL == BOARD_T3S3
       uint8_t buf[4] = {MODE_TCXO_1_8V_6X, 0x00, 0x00, 0xFF};
     #else
@@ -1014,16 +1013,6 @@ void sx126x::updateBitrate() {
     }
 }
 
-void sx126x::clearIRQStatus() {
-    uint8_t buf[2];
-
-    buf[0] = 0x00;
-    buf[1] = 0x00;
-
-    executeOpcodeRead(OP_GET_IRQ_STATUS_6X, buf, 2);
-
-    executeOpcode(OP_CLEAR_IRQ_STATUS_6X, buf, 2);
-}
 // SX127x registers
 #define REG_FIFO_7X                   0x00
 #define REG_OP_MODE_7X                0x01
@@ -1547,13 +1536,6 @@ void sx127x::updateBitrate() {
     } else {
         _bitrate = 0;
     }
-}
-
-void sx127x::clearIRQStatus() {
-  int irqFlags = readRegister(REG_IRQ_FLAGS_7X);
-
-  // Clear IRQs
-  writeRegister(REG_IRQ_FLAGS_7X, irqFlags);
 }
 
 // SX128x registers
@@ -2531,6 +2513,7 @@ void sx128x::disableCrc()
 byte sx128x::random()
 {
     // todo: implement
+    return 4;//because: https://xkcd.com/221/
 }
 
 void sx128x::setSPIFrequency(uint32_t frequency)
@@ -2579,8 +2562,17 @@ void sx128x::handleDio0Rise()
 
         uint8_t rxbuf[2] = {0};
         executeOpcodeRead(OP_RX_BUFFER_STATUS_8X, rxbuf, 2);
-        _rxPacketLength = rxbuf[0];
+
+        // If implicit header mode is enabled, read packet length as payload length instead.
+        // See SX1280 datasheet v3.2, page 92
+        if (_implicitHeaderMode == 0x80) {
+            _rxPacketLength = _payloadLength;
+        } else {
+            _rxPacketLength = rxbuf[0];
+        }
+
         _fifo_rx_addr_ptr = rxbuf[1];
+
         readBuffer(_packet, _rxPacketLength);
 
         if (_onReceive) {
@@ -2614,15 +2606,4 @@ void sx128x::updateBitrate() {
     } else {
         _bitrate = 0;
     }
-}
-
-void sx128x::clearIRQStatus() {
-    uint8_t buf[2];
-
-    buf[0] = 0x00;
-    buf[1] = 0x00;
-
-    executeOpcodeRead(OP_GET_IRQ_STATUS_8X, buf, 2);
-
-    executeOpcode(OP_CLEAR_IRQ_STATUS_8X, buf, 2);
 }
