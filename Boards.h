@@ -411,6 +411,7 @@
       #define PIN_WAKEUP GPIO_NUM_0
       #define WAKEUP_LEVEL 0
       #define INTERFACE_COUNT 1
+      #define HAS_PMU true
 
       const int pin_btn_usr1 = 0;
 
