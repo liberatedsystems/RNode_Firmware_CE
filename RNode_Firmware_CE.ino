@@ -1335,7 +1335,6 @@ void packet_poll() {
         #elif MCU_VARIANT == MCU_NRF52
         portEXIT_CRITICAL();
         #endif
-        selected_radio->clearIRQStatus();
         selected_radio->handleDio0Rise();
     }
 }

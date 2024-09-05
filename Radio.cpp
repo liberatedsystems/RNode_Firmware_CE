@@ -1011,16 +1011,6 @@ void sx126x::updateBitrate() {
     }
 }
 
-void sx126x::clearIRQStatus() {
-    uint8_t buf[2];
-
-    buf[0] = 0x00;
-    buf[1] = 0x00;
-
-    executeOpcodeRead(OP_GET_IRQ_STATUS_6X, buf, 2);
-
-    executeOpcode(OP_CLEAR_IRQ_STATUS_6X, buf, 2);
-}
 // SX127x registers
 #define REG_FIFO_7X                   0x00
 #define REG_OP_MODE_7X                0x01
@@ -1544,13 +1534,6 @@ void sx127x::updateBitrate() {
     } else {
         _bitrate = 0;
     }
-}
-
-void sx127x::clearIRQStatus() {
-  int irqFlags = readRegister(REG_IRQ_FLAGS_7X);
-
-  // Clear IRQs
-  writeRegister(REG_IRQ_FLAGS_7X, irqFlags);
 }
 
 // SX128x registers
@@ -2620,15 +2603,4 @@ void sx128x::updateBitrate() {
     } else {
         _bitrate = 0;
     }
-}
-
-void sx128x::clearIRQStatus() {
-    uint8_t buf[2];
-
-    buf[0] = 0x00;
-    buf[1] = 0x00;
-
-    executeOpcodeRead(OP_GET_IRQ_STATUS_8X, buf, 2);
-
-    executeOpcode(OP_CLEAR_IRQ_STATUS_8X, buf, 2);
 }
