@@ -231,6 +231,24 @@ bool display_init() {
       delay(50);
       digitalWrite(pin_display_en, HIGH);
       Wire.begin(SDA_OLED, SCL_OLED);
+    #elif BOARD_MODEL == BOARD_TECHO
+      #if DISPLAY == OLED
+      #elif DISPLAY == EINK_BW || DISPLAY == EINK_3C
+      pinMode(pin_disp_en, INPUT_PULLUP);
+      digitalWrite(pin_disp_en, HIGH);
+
+      SPIClass displaySPI();
+      displaySPI.begin(pin_display_sck, pin_display_miso, pin_display_mosi, pin_display_cs); // SCLK, MISO, MOSI, SS
+
+      display.init(0, true, 10, false, displaySPI, SPISettings(4000000, MSBFIRST, SPI_MODE0));
+      display.setPartialWindow(0, 0, DISP_W, DISP_H);
+
+      // Because refreshing this display can take some time, sometimes serial
+      // commands will be missed. Therefore, during periods where the device is
+      // waiting for the display to update, it will poll the serial buffer to
+      // check for any commands from the host.
+      display.epd2.setBusyCallback(busyCallback);
+      #endif
     #elif BOARD_MODEL == BOARD_RAK4631
       #if DISPLAY == OLED
       #elif DISPLAY == EINK_BW || DISPLAY == EINK_3C

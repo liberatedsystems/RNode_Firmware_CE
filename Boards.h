@@ -639,7 +639,8 @@
       #define EEPROM_OFFSET EEPROM_SIZE-EEPROM_RESERVED
       //#define HAS_EEPROM true
       //#define HAS_SD true
-      //#define HAS_DISPLAY true
+      #define HAS_DISPLAY true
+      #define DISPLAY_MODEL GxEPD2_154_D67
       //#define HAS_CONSOLE true
       //#define HAS_TXCO true
       //#define DISPLAY EINK_BW
@@ -686,6 +687,9 @@
       const int pin_disp_reset = 2;
       const int pin_disp_busy = 3;
       const int pin_disp_en = 43;
+      const int pin_disp_sck = 31;
+      const int pin_disp_mosi = 29;
+
 
       const int pin_led_rx = LED_BLUE;
       const int pin_led_tx = LED_RED;

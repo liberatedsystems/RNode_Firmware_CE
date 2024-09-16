@@ -408,7 +408,7 @@ const unsigned char bm_dot_sqr [] PROGMEM = {
 	0x80, 0x00, 0x40, 0x00, 0x00, 0x00, 0xaa, 0xd5, 0x40
 };
 
-#elif DISP_H == 122
+#elif (DISP_H == 122 || DISP_H == 200)
 // use 122px wide graphics
 
 const unsigned char bm_bt [] PROGMEM = {
