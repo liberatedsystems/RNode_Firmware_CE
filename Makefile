@@ -21,7 +21,7 @@ clean:
 	-rm -r ./build
 	-rm ./Release/rnode_firmware*
 
-prep: prep-esp32 prep-samd
+prep: prep-esp32 prep-nrf prep-samd
 
 prep-esp32:
 	arduino-cli core update-index --config-file arduino-cli.yaml

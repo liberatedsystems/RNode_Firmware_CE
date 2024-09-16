@@ -1,5 +1,6 @@
 board_manager:
   additional_urls:
+  - https://adafruit.github.io/arduino-board-index/package_adafruit_index.json
   - https://liberatedsystems.co.uk/rnode-firmware-ce/esp-custom-package.json
   - https://raw.githubusercontent.com/RAKwireless/RAKwireless-Arduino-BSP-Index/main/package_rakwireless_index.json
   - http://unsigned.io/arduino/package_unsignedio_UnsignedBoards_index.json
