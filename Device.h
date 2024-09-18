@@ -324,7 +324,8 @@ bool device_init() {
   }
   #else
   // Skip hash comparison and checking BT
-  return true;
+  device_init_done = true;
+  return device_init_done;
   #endif
 }
 #endif

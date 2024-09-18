@@ -109,9 +109,9 @@ void setup() {
 
   Serial.begin(serial_baudrate);
 
-  #if BOARD_MODEL != BOARD_RAK4631 && BOARD_MODEL != BOARD_T3S3
+  #if BOARD_MODEL != BOARD_RAK4631 && BOARD_MODEL != BOARD_T3S3 && BOARD_MODEL != BOARD_TECHO
   // Some boards need to wait until the hardware UART is set up before booting
-  // the full firmware. In the case of the RAK4631, the line below will wait
+  // the full firmware. In the case of the RAK4631/TECHO, the line below will wait
   // until a serial connection is actually established with a master. Thus, it
   // is disabled on this platform.
     while (!Serial);
@@ -1297,6 +1297,11 @@ void loop() {
 
   #if HAS_INPUT
     input_read();
+    #if HAS_BACKLIGHT
+    if (button_pressed()) {
+      digitalWrite(pin_backlight, !digitalRead(pin_backlight));
+    }
+    #endif
   #endif
 }
 

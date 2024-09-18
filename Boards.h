@@ -632,6 +632,7 @@
   #elif MCU_VARIANT == MCU_NRF52
      #if BOARD_MODEL == BOARD_TECHO
       #define VALIDATE_FIRMWARE false
+      #define HAS_INPUT true
       //#define GPS_BAUD_RATE 115200
       //#define PIN_GPS_TX 41
       //#define PIN_GPS_RX 40
@@ -640,17 +641,17 @@
       //#define HAS_EEPROM true
       //#define HAS_SD true
       #define HAS_DISPLAY true
+      #define DISPLAY EINK_BW
       #define DISPLAY_MODEL GxEPD2_154_D67
       //#define HAS_CONSOLE true
       //#define HAS_TXCO true
-      //#define DISPLAY EINK_BW
       //#define HAS_BLE true
       //#define HAS_PMU true
       #define CONFIG_UART_BUFFER_SIZE 40000
       #define CONFIG_QUEUE_0_SIZE 6144
       #define CONFIG_QUEUE_MAX_LENGTH 200
-      #define BLE_MANUFACTURER "LilyGO"
-      #define BLE_MODEL "T-Echo"
+      //#define BLE_MANUFACTURER "LilyGO"
+      //#define BLE_MODEL "T-Echo"
       #define INTERFACE_COUNT 1
       //#define I2C_SDA 26
       //#define I2C_SCL 27
@@ -689,7 +690,11 @@
       const int pin_disp_en = 43;
       const int pin_disp_sck = 31;
       const int pin_disp_mosi = 29;
+      const int pin_disp_miso = -1;
 
+      #define HAS_BACKLIGHT true
+      const int pin_btn_usr1 = 42;
+      const int pin_backlight = 43;
 
       const int pin_led_rx = LED_BLUE;
       const int pin_led_tx = LED_RED;

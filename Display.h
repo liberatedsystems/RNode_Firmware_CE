@@ -21,6 +21,8 @@
 #include <Adafruit_SSD1306.h>
 #define DISP_W 128
 #define DISP_H 64
+#define DISPLAY_BLACK SSD1306_BLACK
+#define DISPLAY_WHITE SSD1306_WHITE
 #elif DISPLAY == EINK_BW || DISPLAY == EINK_3C
 void (*display_callback)();
 void display_add_callback(void (*callback)()) {
@@ -29,6 +31,8 @@ void display_add_callback(void (*callback)()) {
 void busyCallback(const void* p) {
     display_callback();
 }
+#define DISPLAY_BLACK GxEPD_BLACK
+#define DISPLAY_WHITE GxEPD_WHITE
 #endif
 #if DISPLAY == EINK_BW
 // use GxEPD2 because adafruit EPD support for partial refresh is bad
@@ -89,43 +93,47 @@ void busyCallback(const void* p) {
   #define DISP_ADDR -1
   #define DISPLAY_MODEL GxEPD2_213_Z98c 
   #endif
+#elif BOARD_MODEL == BOARD_TECHO
+  SPIClass displaySPI = SPIClass(NRF_SPIM0, pin_disp_miso, pin_disp_sck, pin_disp_mosi);
+  #define DISP_W 128
+  #define DISP_H 64
+  #define DISP_ADDR -1
 #else
   #define DISP_RST -1
   #define DISP_ADDR 0x3C
   #define DISP_CUSTOM_ADDR true
 #endif
 
-#define UNSCALED_MAX 64
-
 #define SMALL_FONT &Org_01
 
 #include "Graphics.h"
 
-#if BOARD_MODEL != BOARD_RAK4631
-// support for BOARD_RAK4631 OLED not implemented yet
-#if DISPLAY == OLED
-Adafruit_SSD1306 display(DISP_W, DISP_H, &Wire, DISP_RST);
-float disp_target_fps = 7;
-#define SCREENSAVER_TIME 500 // ms
-uint32_t last_screensaver = 0;
-#define SCREENSAVER_INTERVAL 600000 // 10 minutes in ms
-bool screensaver_enabled = false;
-#endif
-#endif
 #if BOARD_MODEL == BOARD_RAK4631
-#if DISPLAY == EINK_BW
+  #if DISPLAY == EINK_BW
+  GxEPD2_BW<DISPLAY_MODEL, DISPLAY_MODEL::HEIGHT> display(DISPLAY_MODEL(pin_disp_cs, pin_disp_dc, pin_disp_reset, pin_disp_busy));
+  float disp_target_fps = 0.2;
+  uint32_t last_epd_refresh = 0;
+  #define REFRESH_PERIOD 300000 // 5 minutes in ms
+  #elif DISPLAY == EINK_3C
+  GxEPD2_3C<DISPLAY_MODEL, DISPLAY_MODEL::HEIGHT> display(DISPLAY_MODEL(pin_disp_cs, pin_disp_dc, pin_disp_reset, pin_disp_busy));
+  float disp_target_fps = 0.05; // refresh usually takes longer on 3C, hence this is 4x the BW refresh period
+  uint32_t last_epd_refresh = 0;
+  #define REFRESH_PERIOD 600000 // 10 minutes in ms
+  #endif
+#elif BOARD_MODEL == BOARD_TECHO
 GxEPD2_BW<DISPLAY_MODEL, DISPLAY_MODEL::HEIGHT> display(DISPLAY_MODEL(pin_disp_cs, pin_disp_dc, pin_disp_reset, pin_disp_busy));
 float disp_target_fps = 0.2;
 uint32_t last_epd_refresh = 0;
 #define REFRESH_PERIOD 300000 // 5 minutes in ms
-#elif DISPLAY == EINK_3C
-GxEPD2_3C<DISPLAY_MODEL, DISPLAY_MODEL::HEIGHT> display(DISPLAY_MODEL(pin_disp_cs, pin_disp_dc, pin_disp_reset, pin_disp_busy));
-float disp_target_fps = 0.05; // refresh usually takes longer on 3C, hence this is 4x the BW refresh period
-uint32_t last_epd_refresh = 0;
-#define REFRESH_PERIOD 600000 // 10 minutes in ms
-#endif
 #else
-// add more eink compatible boards here
+  #if DISPLAY == OLED
+  Adafruit_SSD1306 display(DISP_W, DISP_H, &Wire, DISP_RST);
+  float disp_target_fps = 7;
+  #define SCREENSAVER_TIME 500 // ms
+  uint32_t last_screensaver = 0;
+  #define SCREENSAVER_INTERVAL 600000 // 10 minutes in ms
+  bool screensaver_enabled = false;
+  #endif
 #endif
 
 #define DISP_MODE_UNKNOWN   0x00
@@ -156,11 +164,12 @@ uint8_t online_interface_list[INTERFACE_COUNT] = {0};
 
 uint8_t online_interfaces = 0;
 
-#if DISPLAY == OLED
+#if DISP_H == 64
 #define WATERFALL_SIZE 46
-#elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
+#elif DISP_H == 122
 #define WATERFALL_SIZE 92
 #else
+#define WATERFALL_SIZE int(DISP_H * 0.75) // default to 75% of the display height
 // add more eink compatible boards here
 #endif
 
@@ -172,12 +181,12 @@ int p_ad_y = 0;
 int p_as_x = 0;
 int p_as_y = 0;
 
-#if DISPLAY == OLED
-GFXcanvas1 stat_area(64, 64);
-GFXcanvas1 disp_area(64, 64);
-#elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
+#if DISP_H == 122
 GFXcanvas1 stat_area(DISP_H, DISP_W/2);
 GFXcanvas1 disp_area(DISP_H, DISP_W/2);
+#else
+GFXcanvas1 stat_area(64, 64);
+GFXcanvas1 disp_area(64, 64);
 #endif
 
 void update_area_positions() {
@@ -232,13 +241,8 @@ bool display_init() {
       digitalWrite(pin_display_en, HIGH);
       Wire.begin(SDA_OLED, SCL_OLED);
     #elif BOARD_MODEL == BOARD_TECHO
-      #if DISPLAY == OLED
-      #elif DISPLAY == EINK_BW || DISPLAY == EINK_3C
       pinMode(pin_disp_en, INPUT_PULLUP);
       digitalWrite(pin_disp_en, HIGH);
-
-      SPIClass displaySPI();
-      displaySPI.begin(pin_display_sck, pin_display_miso, pin_display_mosi, pin_display_cs); // SCLK, MISO, MOSI, SS
 
       display.init(0, true, 10, false, displaySPI, SPISettings(4000000, MSBFIRST, SPI_MODE0));
       display.setPartialWindow(0, 0, DISP_W, DISP_H);
@@ -248,7 +252,6 @@ bool display_init() {
       // waiting for the display to update, it will poll the serial buffer to
       // check for any commands from the host.
       display.epd2.setBusyCallback(busyCallback);
-      #endif
     #elif BOARD_MODEL == BOARD_RAK4631
       #if DISPLAY == OLED
       #elif DISPLAY == EINK_BW || DISPLAY == EINK_3C
@@ -314,6 +317,9 @@ bool display_init() {
         #elif DISPLAY == EINK_BW || DISPLAY == EINK_3C
         disp_mode = DISP_MODE_PORTRAIT;
         #endif
+      #elif BOARD_MODEL == BOARD_TECHO
+        disp_mode = DISP_MODE_LANDSCAPE;
+        display.setRotation(3);
       #elif BOARD_MODEL == BOARD_HELTEC32_V3
         disp_mode = DISP_MODE_PORTRAIT;
         // Antenna conx up
@@ -348,50 +354,50 @@ bool display_init() {
 
 void draw_cable_icon(int px, int py) {
   if (cable_state == CABLE_STATE_DISCONNECTED) {
-    #if DISPLAY == OLED
-        stat_area.drawBitmap(px, py, bm_cable+0*32, 16, 16, SSD1306_WHITE, SSD1306_BLACK);
-    #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-        stat_area.drawBitmap(px, py, bm_cable+0*128, 30, 32, GxEPD_WHITE, GxEPD_BLACK);
+    #if DISP_H == 122
+        stat_area.drawBitmap(px, py, bm_cable+0*128, 30, 32, DISPLAY_WHITE, DISPLAY_BLACK);
+    #else
+        stat_area.drawBitmap(px, py, bm_cable+0*32, 16, 16, DISPLAY_WHITE, DISPLAY_BLACK);
     #endif
   } else if (cable_state == CABLE_STATE_CONNECTED) {
-    #if DISPLAY == OLED
-        stat_area.drawBitmap(px, py, bm_cable+1*32, 16, 16, SSD1306_WHITE, SSD1306_BLACK);
-    #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-        stat_area.drawBitmap(px, py, bm_cable+1*128, 30, 32, GxEPD_WHITE, GxEPD_BLACK);
+    #if DISP_H == 122
+        stat_area.drawBitmap(px, py, bm_cable+1*128, 30, 32, DISPLAY_WHITE, DISPLAY_BLACK);
+    #else
+        stat_area.drawBitmap(px, py, bm_cable+1*32, 16, 16, DISPLAY_WHITE, DISPLAY_BLACK);
     #endif
   }
 }
 
 void draw_bt_icon(int px, int py) {
   if (bt_state == BT_STATE_OFF) {
-    #if DISPLAY == OLED
-        stat_area.drawBitmap(px, py, bm_bt+0*32, 16, 16, SSD1306_WHITE, SSD1306_BLACK);
-    #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-        stat_area.drawBitmap(px, py, bm_bt+0*128, 30, 32, GxEPD_WHITE, GxEPD_BLACK);
+    #if DISP_H == 122
+        stat_area.drawBitmap(px, py, bm_bt+0*128, 30, 32, DISPLAY_WHITE, DISPLAY_BLACK);
+    #else
+        stat_area.drawBitmap(px, py, bm_bt+0*32, 16, 16, DISPLAY_WHITE, DISPLAY_BLACK);
     #endif
   } else if (bt_state == BT_STATE_ON) {
-    #if DISPLAY == OLED
-        stat_area.drawBitmap(px, py, bm_bt+1*32, 16, 16, SSD1306_WHITE, SSD1306_BLACK);
-    #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-        stat_area.drawBitmap(px, py, bm_bt+1*128, 30, 32, GxEPD_WHITE, GxEPD_BLACK);
+    #if DISP_H == 122
+        stat_area.drawBitmap(px, py, bm_bt+1*128, 30, 32, DISPLAY_WHITE, DISPLAY_BLACK);
+    #else
+        stat_area.drawBitmap(px, py, bm_bt+1*32, 16, 16, DISPLAY_WHITE, DISPLAY_BLACK);
     #endif
   } else if (bt_state == BT_STATE_PAIRING) {
-    #if DISPLAY == OLED
-        stat_area.drawBitmap(px, py, bm_bt+2*32, 16, 16, SSD1306_WHITE, SSD1306_BLACK);
-    #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-        stat_area.drawBitmap(px, py, bm_bt+2*128, 30, 32, GxEPD_WHITE, GxEPD_BLACK);
+    #if DISP_H == 122
+        stat_area.drawBitmap(px, py, bm_bt+2*128, 30, 32, DISPLAY_WHITE, DISPLAY_BLACK);
+    #else
+        stat_area.drawBitmap(px, py, bm_bt+2*32, 16, 16, DISPLAY_WHITE, DISPLAY_BLACK);
     #endif
   } else if (bt_state == BT_STATE_CONNECTED) {
-    #if DISPLAY == OLED
-        stat_area.drawBitmap(px, py, bm_bt+3*32, 16, 16, SSD1306_WHITE, SSD1306_BLACK);
-    #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-        stat_area.drawBitmap(px, py, bm_bt+3*128, 30, 32, GxEPD_WHITE, GxEPD_BLACK);
+    #if DISP_H == 122
+        stat_area.drawBitmap(px, py, bm_bt+3*128, 30, 32, DISPLAY_WHITE, DISPLAY_BLACK);
+    #else
+        stat_area.drawBitmap(px, py, bm_bt+3*32, 16, 16, DISPLAY_WHITE, DISPLAY_BLACK);
     #endif
   } else {
-    #if DISPLAY == OLED
-        stat_area.drawBitmap(px, py, bm_bt+0*32, 16, 16, SSD1306_WHITE, SSD1306_BLACK);
-    #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-        stat_area.drawBitmap(px, py, bm_bt+0*128, 30, 32, GxEPD_WHITE, GxEPD_BLACK);
+    #if DISP_H == 122
+        stat_area.drawBitmap(px, py, bm_bt+0*128, 30, 32, DISPLAY_WHITE, DISPLAY_BLACK);
+    #else
+        stat_area.drawBitmap(px, py, bm_bt+0*32, 16, 16, DISPLAY_WHITE, DISPLAY_BLACK);
     #endif
   }
 }
@@ -399,60 +405,60 @@ void draw_bt_icon(int px, int py) {
 void draw_lora_icon(RadioInterface* radio, int px, int py) {
   // todo: make display show other interfaces
   if (radio_online) {
-        #if DISPLAY == OLED
-                if (online_interface_list[interface_page] != radio->getIndex()) {
-                    stat_area.drawBitmap(px - 1, py-1, bm_dot_sqr, 18, 19, SSD1306_WHITE, SSD1306_BLACK);
+    #if DISP_H == 122
+    if (online_interface_list[interface_page] != radio->getIndex()) {
+      stat_area.drawBitmap(px - 2, py - 2, bm_dot_sqr, 34, 36, DISPLAY_WHITE, DISPLAY_BLACK);
 
-                    // redraw stat area on next refresh
-                    stat_area_initialised = false;
-                }
-                  if (radio->getRadioOnline()) {
-                stat_area.drawBitmap(px, py, bm_rf+1*32, 16, 16, SSD1306_WHITE, SSD1306_BLACK);
-                  } else {
-                stat_area.drawBitmap(px, py, bm_rf+0*32, 16, 16, SSD1306_WHITE, SSD1306_BLACK);
-                  }
-        #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-                if (online_interface_list[interface_page] != radio->getIndex()) {
-                    stat_area.drawBitmap(px - 2, py - 2, bm_dot_sqr, 34, 36, GxEPD_WHITE, GxEPD_BLACK);
+      // redraw stat area on next refresh
+      stat_area_initialised = false;
+    }
+    if (radio->getRadioOnline()) {
+      stat_area.drawBitmap(px, py, bm_rf+1*128, 30, 32, DISPLAY_WHITE, DISPLAY_BLACK);
+    } else {
+      stat_area.drawBitmap(px, py, bm_rf+0*128, 30, 32, DISPLAY_WHITE, DISPLAY_BLACK);
+    }
+    #else
+    if (online_interface_list[interface_page] != radio->getIndex()) {
+      stat_area.drawBitmap(px - 1, py - 1, bm_dot_sqr, 18, 19, DISPLAY_WHITE, DISPLAY_BLACK);
 
-                    // redraw stat area on next refresh
-                    stat_area_initialised = false;
-                }
-                  if (radio->getRadioOnline()) {
-                stat_area.drawBitmap(px, py, bm_rf+1*128, 30, 32, GxEPD_WHITE, GxEPD_BLACK);
-                  } else {
-                stat_area.drawBitmap(px, py, bm_rf+0*128, 30, 32, GxEPD_WHITE, GxEPD_BLACK);
-                  }
-        #endif
-      } else {
-        #if DISPLAY == OLED
-            stat_area.drawBitmap(px, py, bm_rf+0*32, 16, 16, SSD1306_WHITE, SSD1306_BLACK);
-        #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-            stat_area.drawBitmap(px, py, bm_rf+0*128, 30, 32, GxEPD_WHITE, GxEPD_BLACK);
-        #endif
-      }
+      // redraw stat area on next refresh
+      stat_area_initialised = false;
+    }
+    if (radio->getRadioOnline()) {
+      stat_area.drawBitmap(px, py, bm_rf+1*32, 16, 16, DISPLAY_WHITE, DISPLAY_BLACK);
+    } else {
+      stat_area.drawBitmap(px, py, bm_rf+0*32, 16, 16, DISPLAY_WHITE, DISPLAY_BLACK);
+    }
+    #endif
+    } else {
+      #if DISP_H == 122
+      stat_area.drawBitmap(px, py, bm_rf+0*128, 30, 32, DISPLAY_WHITE, DISPLAY_BLACK);
+      #else
+      stat_area.drawBitmap(px, py, bm_rf+0*32, 16, 16, DISPLAY_WHITE, DISPLAY_BLACK);
+      #endif
+    }
 }
 
 void draw_mw_icon(int px, int py) {
   if (INTERFACE_COUNT >= 2) {
       if (interface_obj[1]->getRadioOnline()) {
-        #if DISPLAY == OLED
-            stat_area.drawBitmap(px, py, bm_rf+3*32, 16, 16, SSD1306_WHITE, SSD1306_BLACK);
-        #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-            stat_area.drawBitmap(px, py, bm_rf+3*128, 30, 32, GxEPD_WHITE, GxEPD_BLACK);
+        #if DISP_H == 122
+            stat_area.drawBitmap(px, py, bm_rf+3*128, 30, 32, DISPLAY_WHITE, DISPLAY_BLACK);
+        #else
+            stat_area.drawBitmap(px, py, bm_rf+3*32, 16, 16, DISPLAY_WHITE, DISPLAY_BLACK);
         #endif
       } else {
-        #if DISPLAY == OLED
-            stat_area.drawBitmap(px, py, bm_rf+2*32, 16, 16, SSD1306_WHITE, SSD1306_BLACK);
-        #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-            stat_area.drawBitmap(px, py, bm_rf+2*128, 30, 32, GxEPD_WHITE, GxEPD_BLACK);
+        #if DISP_H == 122
+            stat_area.drawBitmap(px, py, bm_rf+2*128, 30, 32, DISPLAY_WHITE, DISPLAY_BLACK);
+        #else
+            stat_area.drawBitmap(px, py, bm_rf+2*32, 16, 16, DISPLAY_WHITE, DISPLAY_BLACK);
         #endif
       }
   } else {
-    #if DISPLAY == OLED
-      stat_area.drawBitmap(px, py, bm_rf+2*32, 16, 16, SSD1306_WHITE, SSD1306_BLACK);
-    #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-      stat_area.drawBitmap(px, py, bm_rf+2*128, 30, 32, GxEPD_WHITE, GxEPD_BLACK);
+    #if DISP_H == 122
+      stat_area.drawBitmap(px, py, bm_rf+2*128, 30, 32, DISPLAY_WHITE, DISPLAY_BLACK);
+    #else
+      stat_area.drawBitmap(px, py, bm_rf+2*32, 16, 16, DISPLAY_WHITE, DISPLAY_BLACK);
     #endif
   }
 }
@@ -471,70 +477,70 @@ void draw_battery_bars(int px, int py) {
         }
 
         if (battery_indeterminate && battery_state == BATTERY_STATE_CHARGING) {
-          #if DISPLAY == OLED
-              stat_area.fillRect(px-2, py-2, 18, 7, SSD1306_BLACK);
-              stat_area.drawBitmap(px-2, py-2, bm_plug, 17, 7, SSD1306_WHITE, SSD1306_BLACK);
-          #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-              stat_area.fillRect(px-2, py-2, 24, 9, GxEPD_BLACK);
-              stat_area.drawBitmap(px-2, py-5, bm_plug, 34, 13, GxEPD_WHITE, GxEPD_BLACK);
+          #if DISP_H == 122
+              stat_area.fillRect(px-2, py-2, 24, 9, DISPLAY_BLACK);
+              stat_area.drawBitmap(px-2, py-5, bm_plug, 34, 13, DISPLAY_WHITE, DISPLAY_BLACK);
+          #else
+              stat_area.fillRect(px-2, py-2, 18, 7, DISPLAY_BLACK);
+              stat_area.drawBitmap(px-2, py-2, bm_plug, 17, 7, DISPLAY_WHITE, DISPLAY_BLACK);
           #endif
         } else {
           if (battery_state == BATTERY_STATE_CHARGED) {
-            #if DISPLAY == OLED
-                stat_area.fillRect(px-2, py-2, 18, 7, SSD1306_BLACK);
-                stat_area.drawBitmap(px-2, py-2, bm_plug, 17, 7, SSD1306_WHITE, SSD1306_BLACK);
-            #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-                stat_area.fillRect(px-2, py-2, 24, 9, GxEPD_BLACK);
-                stat_area.drawBitmap(px-2, py-5, bm_plug, 34, 13, GxEPD_WHITE, GxEPD_BLACK);
+            #if DISP_H == 122
+                stat_area.fillRect(px-2, py-2, 24, 9, DISPLAY_BLACK);
+                stat_area.drawBitmap(px-2, py-5, bm_plug, 34, 13, DISPLAY_WHITE, DISPLAY_BLACK);
+            #else
+                stat_area.fillRect(px-2, py-2, 18, 7, DISPLAY_BLACK);
+                stat_area.drawBitmap(px-2, py-2, bm_plug, 17, 7, DISPLAY_WHITE, DISPLAY_BLACK);
             #endif
           } else {
-            #if DISPLAY == OLED
-                stat_area.fillRect(px, py, 14, 3, SSD1306_BLACK);
-                stat_area.fillRect(px-2, py-2, 18, 7, SSD1306_BLACK);
-                stat_area.drawRect(px-2, py-2, 17, 7, SSD1306_WHITE);
-                stat_area.drawLine(px+15, py, px+15, py+3, SSD1306_WHITE);
-                if (battery_value > 7) stat_area.drawLine(px, py, px, py+2, SSD1306_WHITE);
-                if (battery_value > 20) stat_area.drawLine(px+1*2, py, px+1*2, py+2, SSD1306_WHITE);
-                if (battery_value > 33) stat_area.drawLine(px+2*2, py, px+2*2, py+2, SSD1306_WHITE);
-                if (battery_value > 46) stat_area.drawLine(px+3*2, py, px+3*2, py+2, SSD1306_WHITE);
-                if (battery_value > 59) stat_area.drawLine(px+4*2, py, px+4*2, py+2, SSD1306_WHITE);
-                if (battery_value > 72) stat_area.drawLine(px+5*2, py, px+5*2, py+2, SSD1306_WHITE);
-                if (battery_value > 85) stat_area.drawLine(px+6*2, py, px+6*2, py+2, SSD1306_WHITE);
-            #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-                stat_area.fillRect(px, py, 20, 5, GxEPD_BLACK);
-                stat_area.fillRect(px-2, py-4, 34, 19, GxEPD_BLACK);
-                stat_area.drawRect(px-2, py-2, 23, 9, GxEPD_WHITE);
-                stat_area.drawLine(px+21, py, px+21, py+5, GxEPD_WHITE);
-                if (battery_value > 0) stat_area.drawLine(px, py, px, py+4, GxEPD_WHITE);
-                if (battery_value >= 10) stat_area.drawLine(px+1*2, py, px+1*2, py+4, GxEPD_WHITE);
-                if (battery_value >= 20) stat_area.drawLine(px+2*2, py, px+2*2, py+4, GxEPD_WHITE);
-                if (battery_value >= 30) stat_area.drawLine(px+3*2, py, px+3*2, py+4, GxEPD_WHITE);
-                if (battery_value >= 40) stat_area.drawLine(px+4*2, py, px+4*2, py+4, GxEPD_WHITE);
-                if (battery_value >= 50) stat_area.drawLine(px+5*2, py, px+5*2, py+4, GxEPD_WHITE);
-                if (battery_value >= 60) stat_area.drawLine(px+6*2, py, px+6*2, py+4, GxEPD_WHITE);
-                if (battery_value >= 70) stat_area.drawLine(px+7*2, py, px+7*2, py+4, GxEPD_WHITE);
-                if (battery_value >= 80) stat_area.drawLine(px+8*2, py, px+8*2, py+4, GxEPD_WHITE);
-                if (battery_value >= 90) stat_area.drawLine(px+9*2, py, px+9*2, py+4, GxEPD_WHITE);
+            #if DISP_H == 122
+                stat_area.fillRect(px, py, 20, 5, DISPLAY_BLACK);
+                stat_area.fillRect(px-2, py-4, 34, 19, DISPLAY_BLACK);
+                stat_area.drawRect(px-2, py-2, 23, 9, DISPLAY_WHITE);
+                stat_area.drawLine(px+21, py, px+21, py+5, DISPLAY_WHITE);
+                if (battery_value > 0) stat_area.drawLine(px, py, px, py+4, DISPLAY_WHITE);
+                if (battery_value >= 10) stat_area.drawLine(px+1*2, py, px+1*2, py+4, DISPLAY_WHITE);
+                if (battery_value >= 20) stat_area.drawLine(px+2*2, py, px+2*2, py+4, DISPLAY_WHITE);
+                if (battery_value >= 30) stat_area.drawLine(px+3*2, py, px+3*2, py+4, DISPLAY_WHITE);
+                if (battery_value >= 40) stat_area.drawLine(px+4*2, py, px+4*2, py+4, DISPLAY_WHITE);
+                if (battery_value >= 50) stat_area.drawLine(px+5*2, py, px+5*2, py+4, DISPLAY_WHITE);
+                if (battery_value >= 60) stat_area.drawLine(px+6*2, py, px+6*2, py+4, DISPLAY_WHITE);
+                if (battery_value >= 70) stat_area.drawLine(px+7*2, py, px+7*2, py+4, DISPLAY_WHITE);
+                if (battery_value >= 80) stat_area.drawLine(px+8*2, py, px+8*2, py+4, DISPLAY_WHITE);
+                if (battery_value >= 90) stat_area.drawLine(px+9*2, py, px+9*2, py+4, DISPLAY_WHITE);
+              #else
+                stat_area.fillRect(px, py, 14, 3, DISPLAY_BLACK);
+                stat_area.fillRect(px-2, py-2, 18, 7, DISPLAY_BLACK);
+                stat_area.drawRect(px-2, py-2, 17, 7, DISPLAY_WHITE);
+                stat_area.drawLine(px+15, py, px+15, py+3, DISPLAY_WHITE);
+                if (battery_value > 7) stat_area.drawLine(px, py, px, py+2, DISPLAY_WHITE);
+                if (battery_value > 20) stat_area.drawLine(px+1*2, py, px+1*2, py+2, DISPLAY_WHITE);
+                if (battery_value > 33) stat_area.drawLine(px+2*2, py, px+2*2, py+2, DISPLAY_WHITE);
+                if (battery_value > 46) stat_area.drawLine(px+3*2, py, px+3*2, py+2, DISPLAY_WHITE);
+                if (battery_value > 59) stat_area.drawLine(px+4*2, py, px+4*2, py+2, DISPLAY_WHITE);
+                if (battery_value > 72) stat_area.drawLine(px+5*2, py, px+5*2, py+2, DISPLAY_WHITE);
+                if (battery_value > 85) stat_area.drawLine(px+6*2, py, px+6*2, py+2, DISPLAY_WHITE);
             #endif
           }
         }
       } else {
-        #if DISPLAY == OLED
-        stat_area.fillRect(px-2, py-2, 18, 7, SSD1306_BLACK);
-        stat_area.drawBitmap(px-2, py-2, bm_plug, 17, 7, SSD1306_WHITE, SSD1306_BLACK);
-        #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-        stat_area.fillRect(px-2, py-2, 24, 9, GxEPD_BLACK);
-        stat_area.drawBitmap(px-2, py-5, bm_plug, 34, 13, GxEPD_WHITE, GxEPD_BLACK);
+        #if DISP_H == 122
+        stat_area.fillRect(px-2, py-2, 24, 9, DISPLAY_BLACK);
+        stat_area.drawBitmap(px-2, py-5, bm_plug, 34, 13, DISPLAY_WHITE, DISPLAY_BLACK);
+        #else
+        stat_area.fillRect(px-2, py-2, 18, 7, DISPLAY_BLACK);
+        stat_area.drawBitmap(px-2, py-2, bm_plug, 17, 7, DISPLAY_WHITE, DISPLAY_BLACK);
         #endif
       }
     }
   } else {
-    #if DISPLAY == OLED
-    stat_area.fillRect(px-2, py-2, 18, 7, SSD1306_BLACK);
-    stat_area.drawBitmap(px-2, py-2, bm_plug, 17, 7, SSD1306_WHITE, SSD1306_BLACK);
-    #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-    stat_area.fillRect(px-2, py-2, 24, 9, GxEPD_BLACK);
-    stat_area.drawBitmap(px-2, py-5, bm_plug, 34, 13, GxEPD_WHITE, GxEPD_BLACK);
+    #if DISP_H == 122
+    stat_area.fillRect(px-2, py-2, 24, 9, DISPLAY_BLACK);
+    stat_area.drawBitmap(px-2, py-5, bm_plug, 34, 13, DISPLAY_WHITE, DISPLAY_BLACK);
+    #else
+    stat_area.fillRect(px-2, py-2, 18, 7, DISPLAY_BLACK);
+    stat_area.drawBitmap(px-2, py-2, bm_plug, 17, 7, DISPLAY_WHITE, DISPLAY_BLACK);
     #endif
   }
 }
@@ -542,6 +548,7 @@ void draw_battery_bars(int px, int py) {
 #define Q_SNR_STEP 2.0
 #define Q_SNR_MIN_BASE -9.0
 #define Q_SNR_MAX 6.0
+
 void draw_quality_bars(int px, int py) {
   signed char t_snr = (signed int)last_snr_raw;
   int snr_int = (int)t_snr;
@@ -552,45 +559,45 @@ void draw_quality_bars(int px, int py) {
   if (quality > 100.0) quality = 100.0;
   if (quality < 0.0) quality = 0.0;
 
-  #if DISPLAY == OLED
-  stat_area.fillRect(px, py, 13, 7, SSD1306_BLACK);
-  if (quality > 0)  stat_area.drawLine(px+0*2, py+7, px+0*2, py+6, SSD1306_WHITE);
-  if (quality > 15) stat_area.drawLine(px+1*2, py+7, px+1*2, py+5, SSD1306_WHITE);
-  if (quality > 30) stat_area.drawLine(px+2*2, py+7, px+2*2, py+4, SSD1306_WHITE);
-  if (quality > 45) stat_area.drawLine(px+3*2, py+7, px+3*2, py+3, SSD1306_WHITE);
-  if (quality > 60) stat_area.drawLine(px+4*2, py+7, px+4*2, py+2, SSD1306_WHITE);
-  if (quality > 75) stat_area.drawLine(px+5*2, py+7, px+5*2, py+1, SSD1306_WHITE);
-  if (quality > 90) stat_area.drawLine(px+6*2, py+7, px+6*2, py+0, SSD1306_WHITE);
-  #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-  stat_area.fillRect(px, py, 26, 14, GxEPD_BLACK);
+  #if DISP_H == 122
+  stat_area.fillRect(px, py, 26, 14, DISPLAY_BLACK);
   if (quality > 0) {
-      stat_area.drawLine(px+0*4, py+14, px+0*4, py+6, GxEPD_WHITE);
-      stat_area.drawLine(px+0*4+1, py+14, px+0*4+1, py+6, GxEPD_WHITE);
+      stat_area.drawLine(px+0*4, py+14, px+0*4, py+6, DISPLAY_WHITE);
+      stat_area.drawLine(px+0*4+1, py+14, px+0*4+1, py+6, DISPLAY_WHITE);
   }
   if (quality > 15) {
-      stat_area.drawLine(px+1*4, py+14, px+1*4, py+5, GxEPD_WHITE);
-      stat_area.drawLine(px+1*4+1, py+14, px+1*4+1, py+5, GxEPD_WHITE);
+      stat_area.drawLine(px+1*4, py+14, px+1*4, py+5, DISPLAY_WHITE);
+      stat_area.drawLine(px+1*4+1, py+14, px+1*4+1, py+5, DISPLAY_WHITE);
   }
   if (quality > 30) {
-      stat_area.drawLine(px+2*4, py+14, px+2*4, py+4, GxEPD_WHITE);
-      stat_area.drawLine(px+2*4+1, py+14, px+2*4+1, py+4, GxEPD_WHITE);
+      stat_area.drawLine(px+2*4, py+14, px+2*4, py+4, DISPLAY_WHITE);
+      stat_area.drawLine(px+2*4+1, py+14, px+2*4+1, py+4, DISPLAY_WHITE);
   }
   if (quality > 45) {
-      stat_area.drawLine(px+3*4, py+14, px+3*4, py+3, GxEPD_WHITE);
-      stat_area.drawLine(px+3*4+1, py+14, px+3*4+1, py+3, GxEPD_WHITE);
+      stat_area.drawLine(px+3*4, py+14, px+3*4, py+3, DISPLAY_WHITE);
+      stat_area.drawLine(px+3*4+1, py+14, px+3*4+1, py+3, DISPLAY_WHITE);
   }
   if (quality > 60) {
-      stat_area.drawLine(px+4*4, py+14, px+4*4, py+2, GxEPD_WHITE);
-      stat_area.drawLine(px+4*4+1, py+14, px+4*4+1, py+2, GxEPD_WHITE);
+      stat_area.drawLine(px+4*4, py+14, px+4*4, py+2, DISPLAY_WHITE);
+      stat_area.drawLine(px+4*4+1, py+14, px+4*4+1, py+2, DISPLAY_WHITE);
   }
   if (quality > 75) {
-      stat_area.drawLine(px+5*4, py+14, px+5*4, py+1, GxEPD_WHITE);
-      stat_area.drawLine(px+5*4+1, py+14, px+5*4+1, py+1, GxEPD_WHITE);
+      stat_area.drawLine(px+5*4, py+14, px+5*4, py+1, DISPLAY_WHITE);
+      stat_area.drawLine(px+5*4+1, py+14, px+5*4+1, py+1, DISPLAY_WHITE);
   }
   if (quality > 90) {
-      stat_area.drawLine(px+6*4, py+14, px+6*4, py+0, GxEPD_WHITE);
-      stat_area.drawLine(px+6*4+1, py+14, px+6*4+1, py+0, GxEPD_WHITE);
+      stat_area.drawLine(px+6*4, py+14, px+6*4, py+0, DISPLAY_WHITE);
+      stat_area.drawLine(px+6*4+1, py+14, px+6*4+1, py+0, DISPLAY_WHITE);
   }
+  #else
+  stat_area.fillRect(px, py, 13, 7, DISPLAY_BLACK);
+  if (quality > 0)  stat_area.drawLine(px+0*2, py+7, px+0*2, py+6, DISPLAY_WHITE);
+  if (quality > 15) stat_area.drawLine(px+1*2, py+7, px+1*2, py+5, DISPLAY_WHITE);
+  if (quality > 30) stat_area.drawLine(px+2*2, py+7, px+2*2, py+4, DISPLAY_WHITE);
+  if (quality > 45) stat_area.drawLine(px+3*2, py+7, px+3*2, py+3, DISPLAY_WHITE);
+  if (quality > 60) stat_area.drawLine(px+4*2, py+7, px+4*2, py+2, DISPLAY_WHITE);
+  if (quality > 75) stat_area.drawLine(px+5*2, py+7, px+5*2, py+1, DISPLAY_WHITE);
+  if (quality > 90) stat_area.drawLine(px+6*2, py+7, px+6*2, py+0, DISPLAY_WHITE);
   #endif
   // Serial.printf("Last SNR: %.2f\n, quality: %.2f\n", snr, quality);
 }
@@ -607,56 +614,58 @@ void draw_signal_bars(int px, int py) {
   if (signal > 100.0) signal = 100.0;
   if (signal < 0.0) signal = 0.0;
 
-  #if DISPLAY == OLED
-  stat_area.fillRect(px, py, 13, 7, SSD1306_BLACK);
-  if (signal > 85) stat_area.drawLine(px+0*2, py+7, px+0*2, py+0, SSD1306_WHITE);
-  if (signal > 72) stat_area.drawLine(px+1*2, py+7, px+1*2, py+1, SSD1306_WHITE);
-  if (signal > 59) stat_area.drawLine(px+2*2, py+7, px+2*2, py+2, SSD1306_WHITE);
-  if (signal > 46) stat_area.drawLine(px+3*2, py+7, px+3*2, py+3, SSD1306_WHITE);
-  if (signal > 33) stat_area.drawLine(px+4*2, py+7, px+4*2, py+4, SSD1306_WHITE);
-  if (signal > 20) stat_area.drawLine(px+5*2, py+7, px+5*2, py+5, SSD1306_WHITE);
-  if (signal > 7)  stat_area.drawLine(px+6*2, py+7, px+6*2, py+6, SSD1306_WHITE);
-  #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-  stat_area.fillRect(px, py, 26, 14, GxEPD_BLACK);
+  #if DISP_H == 122
+  stat_area.fillRect(px, py, 26, 14, DISPLAY_BLACK);
   if (signal > 85) {
-      stat_area.drawLine(px+0*4, py+14, px+0*4, py+0, GxEPD_WHITE);
-      stat_area.drawLine(px+0*4+1, py+14, px+0*4+1, py+0, GxEPD_WHITE);
+      stat_area.drawLine(px+0*4, py+14, px+0*4, py+0, DISPLAY_WHITE);
+      stat_area.drawLine(px+0*4+1, py+14, px+0*4+1, py+0, DISPLAY_WHITE);
   }
   if (signal > 72) {
-      stat_area.drawLine(px+1*4, py+14, px+1*4, py+1, GxEPD_WHITE);
-      stat_area.drawLine(px+1*4+1, py+14, px+1*4+1, py+1, GxEPD_WHITE);
+      stat_area.drawLine(px+1*4, py+14, px+1*4, py+1, DISPLAY_WHITE);
+      stat_area.drawLine(px+1*4+1, py+14, px+1*4+1, py+1, DISPLAY_WHITE);
   }
   if (signal > 59) {
-      stat_area.drawLine(px+2*4, py+14, px+2*4, py+2, GxEPD_WHITE);
-      stat_area.drawLine(px+2*4+1, py+14, px+2*4+1, py+2, GxEPD_WHITE);
+      stat_area.drawLine(px+2*4, py+14, px+2*4, py+2, DISPLAY_WHITE);
+      stat_area.drawLine(px+2*4+1, py+14, px+2*4+1, py+2, DISPLAY_WHITE);
   }
   if (signal > 46) {
-      stat_area.drawLine(px+3*4, py+14, px+3*4, py+3, GxEPD_WHITE);
-      stat_area.drawLine(px+3*4+1, py+14, px+3*4+1, py+3, GxEPD_WHITE);
+      stat_area.drawLine(px+3*4, py+14, px+3*4, py+3, DISPLAY_WHITE);
+      stat_area.drawLine(px+3*4+1, py+14, px+3*4+1, py+3, DISPLAY_WHITE);
   }
   if (signal > 33) {
-      stat_area.drawLine(px+4*4, py+14, px+4*4, py+4, GxEPD_WHITE);
-      stat_area.drawLine(px+4*4+1, py+14, px+4*4+1, py+4, GxEPD_WHITE);
+      stat_area.drawLine(px+4*4, py+14, px+4*4, py+4, DISPLAY_WHITE);
+      stat_area.drawLine(px+4*4+1, py+14, px+4*4+1, py+4, DISPLAY_WHITE);
   }
   if (signal > 20) {
-      stat_area.drawLine(px+5*4, py+14, px+5*4, py+5, GxEPD_WHITE);
-      stat_area.drawLine(px+5*4+1, py+14, px+5*4+1, py+5, GxEPD_WHITE);
+      stat_area.drawLine(px+5*4, py+14, px+5*4, py+5, DISPLAY_WHITE);
+      stat_area.drawLine(px+5*4+1, py+14, px+5*4+1, py+5, DISPLAY_WHITE);
   }
   if (signal > 7)  {
-      stat_area.drawLine(px+6*4, py+14, px+6*4, py+6, GxEPD_WHITE);
-      stat_area.drawLine(px+6*4+1, py+14, px+6*4+1, py+6, GxEPD_WHITE);
+      stat_area.drawLine(px+6*4, py+14, px+6*4, py+6, DISPLAY_WHITE);
+      stat_area.drawLine(px+6*4+1, py+14, px+6*4+1, py+6, DISPLAY_WHITE);
   }
+  #else
+  stat_area.fillRect(px, py, 13, 7, DISPLAY_BLACK);
+  if (signal > 85) stat_area.drawLine(px+0*2, py+7, px+0*2, py+0, DISPLAY_WHITE);
+  if (signal > 72) stat_area.drawLine(px+1*2, py+7, px+1*2, py+1, DISPLAY_WHITE);
+  if (signal > 59) stat_area.drawLine(px+2*2, py+7, px+2*2, py+2, DISPLAY_WHITE);
+  if (signal > 46) stat_area.drawLine(px+3*2, py+7, px+3*2, py+3, DISPLAY_WHITE);
+  if (signal > 33) stat_area.drawLine(px+4*2, py+7, px+4*2, py+4, DISPLAY_WHITE);
+  if (signal > 20) stat_area.drawLine(px+5*2, py+7, px+5*2, py+5, DISPLAY_WHITE);
+  if (signal > 7)  stat_area.drawLine(px+6*2, py+7, px+6*2, py+6, DISPLAY_WHITE);
   #endif
   // Serial.printf("Last SNR: %.2f\n, quality: %.2f\n", snr, quality);
 }
 
 #define WF_RSSI_MAX -60
 #define WF_RSSI_MIN -135
-#define WF_RSSI_SPAN (WF_RSSI_MAX-WF_RSSI_MIN)
-#if DISPLAY == OLED
-#define WF_PIXEL_WIDTH 10
-#elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
+#define WF_RSSI_SPAN (WF_RSSI_MAX - WF_RSSI_MIN)
+#if DISP_H == 122
 #define WF_PIXEL_WIDTH 22
+#elif disp_mode == DISP_MODE_LANDSCAPE
+#define WF_PIXEL_WIDTH (DISP_H / WF_RSSI_SPAN)
+#else
+#define WF_PIXEL_WIDTH (DISP_W / WF_RSSI_SPAN)
 #endif
 void draw_waterfall(int px, int py) {
   int rssi_val = interface_obj[interface_page]->currentRssi();
@@ -667,20 +676,12 @@ void draw_waterfall(int px, int py) {
   waterfall[interface_page][waterfall_head[interface_page]++] = rssi_normalised;
   if (waterfall_head[interface_page] >= WATERFALL_SIZE) waterfall_head[interface_page] = 0;
 
-  #if DISPLAY == OLED
-  stat_area.fillRect(px,py,WF_PIXEL_WIDTH, WATERFALL_SIZE, SSD1306_BLACK);
-  #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-  stat_area.fillRect(px,py,WF_PIXEL_WIDTH, WATERFALL_SIZE, GxEPD_BLACK);
-  #endif
+  stat_area.fillRect(px,py,WF_PIXEL_WIDTH, WATERFALL_SIZE, DISPLAY_BLACK);
   for (int i = 0; i < WATERFALL_SIZE; i++){
     int wi = (waterfall_head[interface_page]+i)%WATERFALL_SIZE;
     int ws = waterfall[interface_page][wi];
     if (ws > 0) {
-      #if DISPLAY == OLED
-        stat_area.drawLine(px, py+i, px+ws-1, py+i, SSD1306_WHITE);
-      #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-        stat_area.drawLine(px, py+i, px+ws-1, py+i, GxEPD_WHITE);
-      #endif
+      stat_area.drawLine(px, py+i, px+ws-1, py+i, DISPLAY_WHITE);
     }
   }
 }
@@ -688,10 +689,10 @@ void draw_waterfall(int px, int py) {
 void draw_stat_area() {
   if (device_init_done) {
     if (!stat_area_initialised) {
-      #if DISPLAY == OLED
-        stat_area.drawBitmap(0, 0, bm_frame, 64, 64, SSD1306_WHITE, SSD1306_BLACK);
-      #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-        stat_area.drawBitmap(0, 0, bm_frame, stat_area.width(), stat_area.height(), GxEPD_WHITE, GxEPD_BLACK);
+      #if DISP_H == 122
+        stat_area.drawBitmap(0, 0, bm_frame, stat_area.width(), stat_area.height(), DISPLAY_WHITE, DISPLAY_BLACK);
+      #else
+        stat_area.drawBitmap(0, 0, bm_frame, 64, 64, DISPLAY_WHITE, DISPLAY_BLACK);
       #endif
       stat_area_initialised = true;
     }
@@ -731,17 +732,7 @@ void draw_stat_area() {
       last_interface_page_flip = millis();
     }
 
-    #if DISPLAY == OLED
-    draw_cable_icon(3, 8);
-    draw_bt_icon(3, 30);
-    draw_lora_icon(interface_obj[0], 45, 8);
-
-    // todo, expand support to show more than two interfaces on screen
-    if (INTERFACE_COUNT > 1) {
-        draw_lora_icon(interface_obj[1], 45, 30);
-    }
-    draw_battery_bars(4, 58);
-    #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
+    #if DISP_H == 122
     draw_cable_icon(6, 18);
     draw_bt_icon(6, 60);
     draw_lora_icon(interface_obj[0], 86, 18);
@@ -751,6 +742,16 @@ void draw_stat_area() {
         draw_lora_icon(interface_obj[1], 86, 60);
     }
     draw_battery_bars(8, 113);
+    #else
+    draw_cable_icon(3, 8);
+    draw_bt_icon(3, 30);
+    draw_lora_icon(interface_obj[0], 45, 8);
+
+    // todo, expand support to show more than two interfaces on screen
+    if (INTERFACE_COUNT > 1) {
+        draw_lora_icon(interface_obj[1], 45, 30);
+    }
+    draw_battery_bars(4, 58);
     #endif
     radio_online = false;
     for (int i = 0; i < INTERFACE_COUNT; i++) {
@@ -760,14 +761,14 @@ void draw_stat_area() {
         }
     }
     if (radio_online) {
-      #if DISPLAY == OLED
-      draw_quality_bars(28, 56);
-      draw_signal_bars(44, 56);
-      draw_waterfall(27, 4);
-      #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
+      #if DISP_H == 122
       draw_quality_bars(53, 109);
       draw_signal_bars(83, 109);
       draw_waterfall(50, 8);
+      #else
+      draw_quality_bars(28, 56);
+      draw_signal_bars(44, 56);
+      draw_waterfall(27, 4);
       #endif
     }
   }
@@ -777,40 +778,23 @@ void update_stat_area() {
   if (eeprom_ok && !firmware_update_mode && !console_active) {
     draw_stat_area();
     if (disp_mode == DISP_MODE_PORTRAIT) {
-      #if DISPLAY == OLED
-      display.drawBitmap(p_as_x, p_as_y, stat_area.getBuffer(), stat_area.width(), stat_area.height(), SSD1306_WHITE, SSD1306_BLACK);
-      #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-      display.drawBitmap(p_as_x, p_as_y, stat_area.getBuffer(), stat_area.width(), stat_area.height(), GxEPD_WHITE, GxEPD_BLACK);
-      #endif
+      display.drawBitmap(p_as_x, p_as_y, stat_area.getBuffer(), stat_area.width(), stat_area.height(), DISPLAY_WHITE, DISPLAY_BLACK);
     } else if (disp_mode == DISP_MODE_LANDSCAPE) {
-      #if DISPLAY == OLED
-      display.drawBitmap(p_as_x+2, p_as_y, stat_area.getBuffer(), stat_area.width(), stat_area.height(), SSD1306_WHITE, SSD1306_BLACK);
-      if (device_init_done && !disp_ext_fb) display.drawLine(p_as_x, 0, p_as_x, 64, SSD1306_WHITE);
-      #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-      display.drawBitmap(p_as_x+2, p_as_y, stat_area.getBuffer(), stat_area.width(), stat_area.height(), GxEPD_WHITE, GxEPD_BLACK);
-      if (device_init_done && !disp_ext_fb) display.drawLine(p_as_x, 0, p_as_x, DISP_W/2, GxEPD_WHITE);
-      #endif
+      display.drawBitmap(p_as_x+2, p_as_y, stat_area.getBuffer(), stat_area.width(), stat_area.height(), DISPLAY_WHITE, DISPLAY_BLACK);
+      if (device_init_done && !disp_ext_fb) display.drawLine(p_as_x, 0, p_as_x, DISP_W/2, DISPLAY_WHITE);
     }
 
   } else {
     if (firmware_update_mode) {
-      #if DISPLAY == OLED
-      display.drawBitmap(p_as_x, p_as_y, bm_updating, stat_area.width(), stat_area.height(), SSD1306_BLACK, SSD1306_WHITE);
-      #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-      display.drawBitmap(p_as_x, p_as_y, bm_updating, stat_area.width(), stat_area.height(), GxEPD_BLACK, GxEPD_WHITE);
-      #endif
+      display.drawBitmap(p_as_x, p_as_y, bm_updating, stat_area.width(), stat_area.height(), DISPLAY_BLACK, DISPLAY_WHITE);
     } else if (console_active && device_init_done) {
-      #if DISPLAY == OLED
-      display.drawBitmap(p_as_x, p_as_y, bm_console, stat_area.width(), stat_area.height(), SSD1306_BLACK, SSD1306_WHITE);
-      #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-      display.drawBitmap(p_as_x, p_as_y, bm_console, stat_area.width(), stat_area.height(), GxEPD_BLACK, GxEPD_WHITE);
-      #endif
+      display.drawBitmap(p_as_x, p_as_y, bm_console, stat_area.width(), stat_area.height(), DISPLAY_BLACK, DISPLAY_WHITE);
       if (disp_mode == DISP_MODE_LANDSCAPE) {
-        #if DISPLAY == OLED
-        display.drawLine(p_as_x, 0, p_as_x, 64, SSD1306_WHITE);
-        #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-        display.drawLine(p_as_x, 0, p_as_x, DISP_W/2, GxEPD_WHITE);
-        #endif
+        //#if DISP_H == 122
+        display.drawLine(p_as_x, 0, p_as_x, DISP_W/2, DISPLAY_WHITE);
+        //#else
+        //display.drawLine(p_as_x, 0, p_as_x, 64, DISPLAY_WHITE);
+        //#endif
       }
     }
   }
@@ -821,82 +805,22 @@ void draw_disp_area() {
     uint8_t p_by = 37;
     if (disp_mode == DISP_MODE_LANDSCAPE || firmware_update_mode) {
       p_by = 18;
-      #if DISPLAY == OLED
-        disp_area.fillRect(0, 0, disp_area.width(), disp_area.height(), SSD1306_BLACK);
-      #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-        disp_area.fillRect(0, 0, disp_area.width(), disp_area.height(), GxEPD_BLACK);
-      #endif
+      disp_area.fillRect(0, 0, disp_area.width(), disp_area.height(), DISPLAY_BLACK);
     }
-    #if DISPLAY == OLED
-      if (!device_init_done) disp_area.drawBitmap(0, p_by, bm_boot, disp_area.width(), 27, SSD1306_WHITE, SSD1306_BLACK);
-      if (firmware_update_mode) disp_area.drawBitmap(0, p_by, bm_fw_update, disp_area.width(), 27, SSD1306_WHITE, SSD1306_BLACK);
-    #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-      if (!device_init_done) disp_area.drawBitmap(0, p_by, bm_boot, disp_area.width(), 54, GxEPD_WHITE);
-      if (firmware_update_mode) disp_area.drawBitmap(0, p_by, bm_fw_update, disp_area.width(), 54, GxEPD_WHITE, GxEPD_BLACK);
+    #if DISP_H == 122
+    if (!device_init_done) disp_area.drawBitmap(0, p_by, bm_boot, disp_area.width(), 54, DISPLAY_WHITE);
+    if (firmware_update_mode) disp_area.drawBitmap(0, p_by, bm_fw_update, disp_area.width(), 54, DISPLAY_WHITE, DISPLAY_BLACK);
+    #else
+    if (!device_init_done) disp_area.drawBitmap(0, p_by, bm_boot, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
+    if (firmware_update_mode) disp_area.drawBitmap(0, p_by, bm_fw_update, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
     #endif
   } else {
     if (!disp_ext_fb or bt_ssp_pin != 0) {
       if (radio_online && display_diagnostics) {
-        #if DISPLAY == OLED
+        #if DISP_H == 122
           selected_radio = interface_obj[online_interface_list[interface_page]];
-          disp_area.fillRect(0,8,disp_area.width(),37, SSD1306_BLACK); disp_area.fillRect(0,37,disp_area.width(),27, SSD1306_WHITE);
-          disp_area.setFont(SMALL_FONT); disp_area.setTextWrap(false); disp_area.setTextColor(SSD1306_WHITE);
-
-          disp_area.setCursor(2, 13);
-          disp_area.print("On");
-          disp_area.setCursor(14, 13);
-          disp_area.print("@");
-          disp_area.setCursor(21, 13);
-          disp_area.printf("%.1fKbps", (float)(selected_radio->getBitrate())/1000.0);
-
-          disp_area.setCursor(2, 23-1);
-          disp_area.print("Airtime:");
-
-          disp_area.setCursor(11, 33-1);
-          if (selected_radio->getTotalChannelUtil() < 0.099) {
-            disp_area.printf("%.1f%%", selected_radio->getAirtime()*100.0);
-          } else {
-            disp_area.printf("%.0f%%", selected_radio->getAirtime()*100.0);
-          }
-
-          disp_area.drawBitmap(2, 26-1, bm_hg_low, 5, 9, SSD1306_WHITE, SSD1306_BLACK);
-
-          disp_area.setCursor(32+11, 33-1);
-
-          if (selected_radio->getLongtermChannelUtil() < 0.099) {
-            disp_area.printf("%.1f%%", selected_radio->getLongtermAirtime()*100.0);
-          } else {
-            disp_area.printf("%.0f%%", selected_radio->getLongtermAirtime()*100.0);
-          }
-          disp_area.drawBitmap(32+2, 26-1, bm_hg_high, 5, 9, SSD1306_WHITE, SSD1306_BLACK);
-
-          disp_area.setTextColor(SSD1306_BLACK);
-
-          disp_area.setCursor(2, 46);
-          disp_area.print("Channel");
-          disp_area.setCursor(38, 46);
-          disp_area.print("Load:");
-
-          disp_area.setCursor(11, 57);
-          if (selected_radio->getTotalChannelUtil() < 0.099) {
-            disp_area.printf("%.1f%%", selected_radio->getTotalChannelUtil()*100.0);
-          } else {
-            disp_area.printf("%.0f%%", selected_radio->getTotalChannelUtil()*100.0);
-          }
-          disp_area.drawBitmap(2, 50, bm_hg_low, 5, 9, SSD1306_BLACK, SSD1306_WHITE);
-        
-          disp_area.setCursor(32+11, 57);
-          if (selected_radio->getLongtermChannelUtil() < 0.099) {
-            disp_area.printf("%.1f%%", selected_radio->getLongtermChannelUtil()*100.0);
-          } else {
-            disp_area.printf("%.0f%%", selected_radio->getLongtermChannelUtil()*100.0);
-          }
-          disp_area.drawBitmap(32+2, 50, bm_hg_high, 5, 9, SSD1306_BLACK, SSD1306_WHITE);
-
-        #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-          selected_radio = interface_obj[online_interface_list[interface_page]];
-          disp_area.fillRect(0,12,disp_area.width(),57, GxEPD_BLACK); disp_area.fillRect(0,69,disp_area.width(),56, GxEPD_WHITE);
-          disp_area.setFont(SMALL_FONT); disp_area.setTextWrap(false); disp_area.setTextColor(GxEPD_WHITE);
+          disp_area.fillRect(0,12,disp_area.width(),57, DISPLAY_BLACK); disp_area.fillRect(0,69,disp_area.width(),56, DISPLAY_WHITE);
+          disp_area.setFont(SMALL_FONT); disp_area.setTextWrap(false); disp_area.setTextColor(DISPLAY_WHITE);
           disp_area.setTextSize(2); // scale text 2x
 
           disp_area.setCursor(2, 22);
@@ -916,7 +840,7 @@ void draw_disp_area() {
             disp_area.printf("%.0f%%", selected_radio->getAirtime()*100.0);
           }
 
-          disp_area.drawBitmap(2, 41, bm_hg_low, 10, 18, GxEPD_WHITE, GxEPD_BLACK);
+          disp_area.drawBitmap(2, 41, bm_hg_low, 10, 18, DISPLAY_WHITE, DISPLAY_BLACK);
 
           disp_area.setCursor(64+17, 53);
           if (selected_radio->getLongtermChannelUtil() < 0.099) {
@@ -924,9 +848,9 @@ void draw_disp_area() {
           } else {
             disp_area.printf("%.0f%%", selected_radio->getLongtermAirtime()*100.0);
           }
-          disp_area.drawBitmap(64, 41, bm_hg_high, 10, 18, GxEPD_WHITE, GxEPD_BLACK);
+          disp_area.drawBitmap(64, 41, bm_hg_high, 10, 18, DISPLAY_WHITE, DISPLAY_BLACK);
 
-          disp_area.setTextColor(GxEPD_BLACK);
+          disp_area.setTextColor(DISPLAY_BLACK);
 
           disp_area.setCursor(2, 88);
           disp_area.print("Channel");
@@ -939,7 +863,7 @@ void draw_disp_area() {
           } else {
             disp_area.printf("%.0f%%", selected_radio->getTotalChannelUtil()*100.0);
           }
-          disp_area.drawBitmap(2, 98, bm_hg_low, 10, 18, GxEPD_BLACK, GxEPD_WHITE);
+          disp_area.drawBitmap(2, 98, bm_hg_low, 10, 18, DISPLAY_BLACK, DISPLAY_WHITE);
 
           disp_area.setCursor(64+17, 110);
           if (selected_radio->getLongtermChannelUtil() < 0.099) {
@@ -947,44 +871,99 @@ void draw_disp_area() {
           } else {
             disp_area.printf("%.0f%%", selected_radio->getLongtermChannelUtil()*100.0);
           }
-          disp_area.drawBitmap(64, 98, bm_hg_high, 10, 18, GxEPD_BLACK, GxEPD_WHITE);
+          disp_area.drawBitmap(64, 98, bm_hg_high, 10, 18, DISPLAY_BLACK, DISPLAY_WHITE);
+        #else
+          selected_radio = interface_obj[online_interface_list[interface_page]];
+          disp_area.fillRect(0,8,disp_area.width(),37, DISPLAY_BLACK); disp_area.fillRect(0,37,disp_area.width(),27, DISPLAY_WHITE);
+          disp_area.setFont(SMALL_FONT); disp_area.setTextWrap(false); disp_area.setTextColor(DISPLAY_WHITE);
+
+          disp_area.setCursor(2, 13);
+          disp_area.print("On");
+          disp_area.setCursor(14, 13);
+          disp_area.print("@");
+          disp_area.setCursor(21, 13);
+          disp_area.printf("%.1fKbps", (float)(selected_radio->getBitrate())/1000.0);
+
+          disp_area.setCursor(2, 23-1);
+          disp_area.print("Airtime:");
+
+          disp_area.setCursor(11, 33-1);
+          if (selected_radio->getTotalChannelUtil() < 0.099) {
+            disp_area.printf("%.1f%%", selected_radio->getAirtime()*100.0);
+          } else {
+            disp_area.printf("%.0f%%", selected_radio->getAirtime()*100.0);
+          }
+
+          disp_area.drawBitmap(2, 26-1, bm_hg_low, 5, 9, DISPLAY_WHITE, DISPLAY_BLACK);
+
+          disp_area.setCursor(32+11, 33-1);
+
+          if (selected_radio->getLongtermChannelUtil() < 0.099) {
+            disp_area.printf("%.1f%%", selected_radio->getLongtermAirtime()*100.0);
+          } else {
+            disp_area.printf("%.0f%%", selected_radio->getLongtermAirtime()*100.0);
+          }
+          disp_area.drawBitmap(32+2, 26-1, bm_hg_high, 5, 9, DISPLAY_WHITE, DISPLAY_BLACK);
+
+          disp_area.setTextColor(DISPLAY_BLACK);
+
+          disp_area.setCursor(2, 46);
+          disp_area.print("Channel");
+          disp_area.setCursor(38, 46);
+          disp_area.print("Load:");
+
+          disp_area.setCursor(11, 57);
+          if (selected_radio->getTotalChannelUtil() < 0.099) {
+            disp_area.printf("%.1f%%", selected_radio->getTotalChannelUtil()*100.0);
+          } else {
+            disp_area.printf("%.0f%%", selected_radio->getTotalChannelUtil()*100.0);
+          }
+          disp_area.drawBitmap(2, 50, bm_hg_low, 5, 9, DISPLAY_BLACK, DISPLAY_WHITE);
+        
+          disp_area.setCursor(32+11, 57);
+          if (selected_radio->getLongtermChannelUtil() < 0.099) {
+            disp_area.printf("%.1f%%", selected_radio->getLongtermChannelUtil()*100.0);
+          } else {
+            disp_area.printf("%.0f%%", selected_radio->getLongtermChannelUtil()*100.0);
+          }
+          disp_area.drawBitmap(32+2, 50, bm_hg_high, 5, 9, DISPLAY_BLACK, DISPLAY_WHITE);
         #endif
 
       } else {
         if (device_signatures_ok()) {
-          #if DISPLAY == OLED
-            disp_area.drawBitmap(0, 0, bm_def_lc, disp_area.width(), 37, SSD1306_WHITE, SSD1306_BLACK);
-          #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-            disp_area.drawBitmap(0, 0, bm_def_lc, disp_area.width(), 71, GxEPD_WHITE, GxEPD_BLACK);
+          #if DISP_H == 122
+            disp_area.drawBitmap(0, 0, bm_def_lc, disp_area.width(), 71, DISPLAY_WHITE, DISPLAY_BLACK);
+          #else
+            disp_area.drawBitmap(0, 0, bm_def_lc, disp_area.width(), 37, DISPLAY_WHITE, DISPLAY_BLACK);
           #endif
         } else {
-          #if DISPLAY == OLED
-            disp_area.drawBitmap(0, 0, bm_def, disp_area.width(), 37, SSD1306_WHITE, SSD1306_BLACK);
-          #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-            disp_area.drawBitmap(0, 0, bm_def, disp_area.width(), 71, GxEPD_WHITE, GxEPD_BLACK);
+          #if DISP_H == 122
+            disp_area.drawBitmap(0, 0, bm_def, disp_area.width(), 71, DISPLAY_WHITE, DISPLAY_BLACK);
+          #else
+            disp_area.drawBitmap(0, 0, bm_def, disp_area.width(), 37, DISPLAY_WHITE, DISPLAY_BLACK);
           #endif
         }
       }
 
       if (!hw_ready || !device_firmware_ok()) {
         if (!device_firmware_ok()) {
-          #if DISPLAY == OLED
-            disp_area.drawBitmap(0, 37, bm_fw_corrupt, disp_area.width(), 27, SSD1306_WHITE, SSD1306_BLACK);
-          #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-            disp_area.drawBitmap(0, 71, bm_fw_corrupt, disp_area.width(), 54, GxEPD_WHITE, GxEPD_BLACK);
+          #if DISP_H == 122
+            disp_area.drawBitmap(0, 71, bm_fw_corrupt, disp_area.width(), 54, DISPLAY_WHITE, DISPLAY_BLACK);
+          #else
+            disp_area.drawBitmap(0, 37, bm_fw_corrupt, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
           #endif
         } else {
           if (!modems_installed) {
-            #if DISPLAY == OLED
-              disp_area.drawBitmap(0, 37, bm_no_radio, disp_area.width(), 27, SSD1306_WHITE, SSD1306_BLACK);
-            #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-              disp_area.drawBitmap(0, 71, bm_no_radio, disp_area.width(), 54, GxEPD_WHITE, GxEPD_BLACK);
+            #if DISP_H == 122
+              disp_area.drawBitmap(0, 71, bm_no_radio, disp_area.width(), 54, DISPLAY_WHITE, DISPLAY_BLACK);
+            #else
+              disp_area.drawBitmap(0, 37, bm_no_radio, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
             #endif
           } else {
-            #if DISPLAY == OLED
-              disp_area.drawBitmap(0, 37, bm_hwfail, disp_area.width(), 27, SSD1306_WHITE, SSD1306_BLACK);
-            #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-              disp_area.drawBitmap(0, 71, bm_hwfail, disp_area.width(), 54, GxEPD_WHITE, GxEPD_BLACK);
+            #if DISP_H == 122
+              disp_area.drawBitmap(0, 71, bm_hwfail, disp_area.width(), 54, DISPLAY_WHITE, DISPLAY_BLACK);
+            #else
+              disp_area.drawBitmap(0, 37, bm_hwfail, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
             #endif
           }
         }
@@ -992,19 +971,19 @@ void draw_disp_area() {
         char *pin_str = (char*)malloc(DISP_PIN_SIZE+1);
         sprintf(pin_str, "%06d", bt_ssp_pin);
 
-        #if DISPLAY == OLED
-          disp_area.drawBitmap(0, 37, bm_pairing, disp_area.width(), 27, SSD1306_WHITE, SSD1306_BLACK);
-        #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-          disp_area.drawBitmap(0, 71, bm_pairing, disp_area.width(), 54, GxEPD_WHITE, GxEPD_BLACK);
+        #if DISP_H == 122
+          disp_area.drawBitmap(0, 71, bm_pairing, disp_area.width(), 54, DISPLAY_WHITE, DISPLAY_BLACK);
+        #else
+          disp_area.drawBitmap(0, 37, bm_pairing, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
         #endif
         for (int i = 0; i < DISP_PIN_SIZE; i++) {
           uint8_t numeric = pin_str[i]-48;
-          #if DISPLAY == OLED
-            uint8_t offset = numeric*5;
-            disp_area.drawBitmap(7+9*i, 37+16, bm_n_uh+offset, 8, 5, SSD1306_WHITE, SSD1306_BLACK);
-          #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
+          #if DISP_H == 122
             uint8_t offset = numeric*20;
-            disp_area.drawBitmap(14+17*i, 71+32, bm_n_uh+offset, 10, 10, GxEPD_WHITE, GxEPD_BLACK);
+            disp_area.drawBitmap(14+17*i, 71+32, bm_n_uh+offset, 10, 10, DISPLAY_WHITE, DISPLAY_BLACK);
+          #else
+            uint8_t offset = numeric*5;
+            disp_area.drawBitmap(7+9*i, 37+16, bm_n_uh+offset, 8, 5, DISPLAY_WHITE, DISPLAY_BLACK);
           #endif
         }
         free(pin_str);
@@ -1017,155 +996,149 @@ void draw_disp_area() {
 
         if (radio_online) {
           if (!display_diagnostics) {
-            #if DISPLAY == OLED
-              disp_area.drawBitmap(0, 37, bm_online, disp_area.width(), 27, SSD1306_WHITE, SSD1306_BLACK);
-            #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-              disp_area.drawBitmap(0, 71, bm_online, disp_area.width(), 54, GxEPD_WHITE, GxEPD_BLACK);
+            #if DISP_H == 122
+              disp_area.drawBitmap(0, 37, bm_online, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
+            #else
+              disp_area.drawBitmap(0, 71, bm_online, disp_area.width(), 54, DISPLAY_WHITE, DISPLAY_BLACK);
             #endif
           }
         } else {
           if (disp_page == 0) {
             if (true || device_signatures_ok()) {
-              #if DISPLAY == OLED
-                disp_area.drawBitmap(0, 37, bm_checks, disp_area.width(), 27, SSD1306_WHITE, SSD1306_BLACK);
-              #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-                disp_area.drawBitmap(0, 71, bm_checks, disp_area.width(), 54, GxEPD_WHITE, GxEPD_BLACK);
+              #if DISP_H == 122
+                disp_area.drawBitmap(0, 71, bm_checks, disp_area.width(), 54, DISPLAY_WHITE, DISPLAY_BLACK);
+              #else
+                disp_area.drawBitmap(0, 37, bm_checks, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
               #endif
             } else {
-              #if DISPLAY == OLED
-                disp_area.drawBitmap(0, 37, bm_nfr, disp_area.width(), 27, SSD1306_WHITE, SSD1306_BLACK);
-              #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-                disp_area.drawBitmap(0, 71, bm_nfr, disp_area.width(), 54, GxEPD_WHITE, GxEPD_BLACK);
+              #if DISP_H == 122
+                disp_area.drawBitmap(0, 71, bm_nfr, disp_area.width(), 54, DISPLAY_WHITE, DISPLAY_BLACK);
+              #else
+                disp_area.drawBitmap(0, 37, bm_nfr, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
               #endif
             }
           } else if (disp_page == 1) {
             if (!console_active) {
-              #if DISPLAY == OLED
-                disp_area.drawBitmap(0, 37, bm_hwok, disp_area.width(), 27, SSD1306_WHITE, SSD1306_BLACK);
-              #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-                disp_area.drawBitmap(0, 71, bm_hwok, disp_area.width(), 54, GxEPD_WHITE, GxEPD_BLACK);
+              #if DISP_H == 122
+                disp_area.drawBitmap(0, 71, bm_hwok, disp_area.width(), 54, DISPLAY_WHITE, DISPLAY_BLACK);
+              #else
+                disp_area.drawBitmap(0, 37, bm_hwok, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
               #endif
             } else {
-              #if DISPLAY == OLED
-                disp_area.drawBitmap(0, 37, bm_console_active, disp_area.width(), 27, SSD1306_WHITE, SSD1306_BLACK);
-              #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-                disp_area.drawBitmap(0, 71, bm_console_active, disp_area.width(), 54, GxEPD_WHITE, GxEPD_BLACK);
+              #if DISP_H == 122
+                disp_area.drawBitmap(0, 71, bm_console_active, disp_area.width(), 54, DISPLAY_WHITE, DISPLAY_BLACK);
+              #else
+                disp_area.drawBitmap(0, 37, bm_console_active, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
               #endif
             }
           } else if (disp_page == 2) {
-            #if DISPLAY == OLED
-              disp_area.drawBitmap(0, 37, bm_version, disp_area.width(), 27, SSD1306_WHITE, SSD1306_BLACK);
-            #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-              disp_area.drawBitmap(0, 71, bm_version, disp_area.width(), 54, GxEPD_WHITE, GxEPD_BLACK);
+            #if DISP_H == 122
+              disp_area.drawBitmap(0, 71, bm_version, disp_area.width(), 54, DISPLAY_WHITE, DISPLAY_BLACK);
+            #else
+              disp_area.drawBitmap(0, 37, bm_version, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
             #endif
             char *v_str = (char*)malloc(3+1);
             sprintf(v_str, "%01d%02d", MAJ_VERS, MIN_VERS);
             for (int i = 0; i < 3; i++) {
-              #if DISPLAY == OLED
-              uint8_t dxp = 20;
-              uint8_t numeric = v_str[i]-48; uint8_t bm_offset = numeric*5;
-              if (i == 2) dxp += 9*2+4;
-              #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
+              #if DISP_H == 122
               uint8_t dxp = 43;
+              uint8_t numeric = v_str[i]-48; uint8_t bm_offset = numeric*20;
+              if (i == 2) dxp += 9*2+6;
+              #else
+              uint8_t dxp = DISP_H * 0.32;
               uint8_t numeric = v_str[i]-48; uint8_t bm_offset = numeric*20;
               if (i == 2) dxp += 9*2+6;
               #endif
               if (i == 1) dxp += 9*1+4;
-              #if DISPLAY == OLED
-               disp_area.drawBitmap(dxp, 37+16, bm_n_uh+bm_offset, 8, 5, SSD1306_WHITE, SSD1306_BLACK);
-              #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
+              #if DISP_H == 122
               // add gap manually rather than oversizing bitmap, as the gfx lib fills in the extra space with black
-              disp_area.drawBitmap(dxp, 71+32, bm_n_uh+bm_offset, 10, 10, GxEPD_WHITE, GxEPD_BLACK);
+              disp_area.drawBitmap(dxp, 71+32, bm_n_uh+bm_offset, 10, 10, DISPLAY_WHITE, DISPLAY_BLACK);
+              #else
+              disp_area.drawBitmap(dxp, 37+16, bm_n_uh+bm_offset, 8, 5, DISPLAY_WHITE, DISPLAY_BLACK);
               #endif
             }
             free(v_str);
-            #if DISPLAY == OLED
-            disp_area.drawLine(27, 37+19, 28, 37+19, SSD1306_BLACK);
-            disp_area.drawLine(27, 37+19, 28, 37+19, SSD1306_BLACK);
-            #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-            disp_area.drawLine(27, 37+20, 28, 37+20, GxEPD_BLACK);
-            disp_area.drawLine(27, 37+20, 28, 37+20, GxEPD_BLACK);
+            #if DISP_H == 122
+            disp_area.drawLine(27, 37+20, 28, 37+20, DISPLAY_BLACK);
+            disp_area.drawLine(27, 37+20, 28, 37+20, DISPLAY_BLACK);
+            #else
+            disp_area.drawLine(27, 37+19, 28, 37+19, DISPLAY_BLACK);
+            disp_area.drawLine(27, 37+19, 28, 37+19, DISPLAY_BLACK);
             #endif
           }
         }
       }
     } else {
-      #if DISPLAY == OLED
-        disp_area.drawBitmap(0, 0, fb, disp_area.width(), disp_area.height(), SSD1306_WHITE, SSD1306_BLACK);
-      #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-        disp_area.drawBitmap(0, 0, fb, disp_area.width(), disp_area.height(), GxEPD_WHITE, GxEPD_BLACK);
-      #endif
+        disp_area.drawBitmap(0, 0, fb, disp_area.width(), disp_area.height(), DISPLAY_WHITE, DISPLAY_BLACK);
     }
   }
 }
 
 void update_disp_area() {
   draw_disp_area();
-  #if DISPLAY == OLED
-    display.drawBitmap(p_ad_x, p_ad_y, disp_area.getBuffer(), disp_area.width(), disp_area.height(), SSD1306_WHITE, SSD1306_BLACK);
-  #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-    display.drawBitmap(p_ad_x, p_ad_y, disp_area.getBuffer(), disp_area.width(), disp_area.height(), GxEPD_WHITE, GxEPD_BLACK);
-  #endif
+  display.drawBitmap(p_ad_x, p_ad_y, disp_area.getBuffer(), disp_area.width(), disp_area.height(), DISPLAY_WHITE, DISPLAY_BLACK);
   if (disp_mode == DISP_MODE_LANDSCAPE) {
     if (device_init_done && !firmware_update_mode && !disp_ext_fb) {
-      #if DISPLAY == OLED
-      display.drawLine(0, 0, 0, 63, SSD1306_WHITE);
-      #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-      display.drawLine(0, 0, 0, 63, GxEPD_WHITE);
+      #if DISP_H == 122
+      display.drawLine(0, 0, 0, 63, DISPLAY_WHITE);
+      #else
+      display.drawLine(0, 0, 0, DISP_H / 2, DISPLAY_WHITE);
       #endif
     }
   }
 }
 
+void do_screensaver(uint32_t current){
+  #if DISPLAY == OLED
+    // Invert display to protect against OLED screen burn in
+    //TODO: Make this a option configurable through rnodeconf
+    //TODO: Implement other ways to do the screensaver, such as scrolling the screen.
+    if (screensaver_enabled) {
+      if (current-last_screensaver >= SCREENSAVER_INTERVAL+SCREENSAVER_TIME) {
+          display.invertDisplay(0);
+          last_screensaver = current;
+          screensaver_enabled = false;
+      }
+    }
+    else if (current-last_screensaver >= SCREENSAVER_INTERVAL) {
+      display.invertDisplay(1);
+      screensaver_enabled = true;
+    }
+  #endif
+}
+
 void update_display(bool blank = false) {
-  if (blank) {
-    #if DISPLAY == OLED
+  #if DISPLAY == OLED
     if (display_contrast != display_intensity) {
       display_contrast = display_intensity;
       set_contrast(&display, display_contrast);
     }
     display.clearDisplay();
-    #endif
+  #endif
+  if (blank) {
     display.display();    
   } else {
     if (millis()-last_disp_update >= disp_update_interval) {
-      #if DISPLAY == OLED
-      if (display_contrast != display_intensity) {
-        display_contrast = display_intensity;
-        set_contrast(&display, display_contrast);
-      }
-      display.clearDisplay();
-      update_stat_area();
-      update_disp_area();
-      display.display();
-
       uint32_t current = millis();
-      // Invert display to protect against OLED screen burn in
-      if (screensaver_enabled) {
-          if (current-last_screensaver >= SCREENSAVER_INTERVAL+SCREENSAVER_TIME) {
-              display.invertDisplay(0);
-              last_screensaver = current;
-              screensaver_enabled = false;
-          }
-      }
-      else if (current-last_screensaver >= SCREENSAVER_INTERVAL) {
-        display.invertDisplay(1);
-        screensaver_enabled = true;
-      }
-      #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
+      #if screensaver_enabled
+        do_screensaver(current);
+      #endif
+      #if DISPLAY == EINK_BW || DISPLAY == EINK_3C
       display.setFullWindow();
-      display.fillScreen(GxEPD_WHITE);
+      display.fillScreen(DISPLAY_WHITE);
+      #endif
       update_stat_area();
       update_disp_area();
-
-      uint32_t current = millis();
+      #if DISPLAY == OLED
+      display.display();
+      #else
       if (current-last_epd_refresh >= REFRESH_PERIOD) {
-          // Perform a full refresh after the correct time has elapsed
-          display.display(false);
-          last_epd_refresh = current;
+        // Perform a full refresh after the correct time has elapsed
+        display.display(false);
+        last_epd_refresh = current;
       } else {
-          // Only perform a partial refresh
-          display.display(true);
+        // Only perform a partial refresh
+        display.display(true);
       }
       #endif
       last_disp_update = current;
