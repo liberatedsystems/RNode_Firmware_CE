@@ -64,6 +64,10 @@ int bat_charging_samples = 0;
 int bat_charged_samples = 0;
 bool bat_voltage_dropping = false;
 float bat_delay_v = 0;
+#elif BOARD_MODEL == BOARD_HELTEC32_V3
+#define BAT_V_MIN 3.4
+#define PIN_VBAT 1
+#define VBAT_READ_CNTRL_PIN 37
 #endif
 
 uint32_t last_pmu_update = 0;
@@ -132,6 +136,40 @@ void measure_battery() {
       //     SerialBT.print(" Voltage is not dropping.\n");
       //   }
       // }
+    }
+
+  #elif BOARD_MODEL == BOARD_HELTEC32_V3
+    battery_indeterminate = false;
+    battery_state = BATTERY_STATE_DISCHARGING;
+    battery_ready = true;
+
+    digitalWrite(VBAT_READ_CNTRL_PIN, LOW);
+    analogSetPinAttenuation(PIN_VBAT, ADC_2_5db);
+    delay(50);
+    analogRead(PIN_VBAT); // to clear out potential wrong reads on first read
+    int analogValue = 0;
+    for (int i = 0; i < 8; i++)
+    {
+      analogValue += analogReadMilliVolts(PIN_VBAT); // reading value to make an average over 5 values
+      delay(10);
+    }
+    digitalWrite(VBAT_READ_CNTRL_PIN, HIGH);
+    analogValue /= 8; // calculate average value
+    battery_voltage = (float(analogValue)/1000.0)* (4.92); // at 2.5db attenuation range is 0-1250mV, 4.9 is voltage divider ratio
+    battery_percent = (battery_voltage - BAT_V_MIN) * 125.0;
+    if(battery_voltage > 4.4){
+      battery_installed = false;
+    }else{
+      battery_installed = true;
+    }
+    
+    if (battery_percent > 100.0)
+    {
+      battery_percent = 100.0;
+    }
+    if (battery_percent < 0.0)
+    {
+      battery_percent = 0.0;
     }
 
   #elif BOARD_MODEL == BOARD_TBEAM
@@ -303,6 +341,12 @@ void update_pmu() {
 bool init_pmu() {
   #if BOARD_MODEL == BOARD_RNODE_NG_21 || BOARD_MODEL == BOARD_LORA32_V2_1
     pinMode(pin_vbat, INPUT);
+    return true;
+  #elif BOARD_MODEL == BOARD_HELTEC32_V3
+    pinMode(PIN_VBAT, INPUT);
+    pinMode(VBAT_READ_CNTRL_PIN, OUTPUT);
+    adcAttachPin(PIN_VBAT);
+    analogReadResolution(12);
     return true;
   #elif BOARD_MODEL == BOARD_TBEAM
     Wire.begin(I2C_SDA, I2C_SCL);
