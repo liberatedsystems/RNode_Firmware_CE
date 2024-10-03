@@ -15,7 +15,7 @@
 
 #ifndef FRAMING_H
   #define FRAMING_H
-
+#define CMD_DEBUG 0xFD
   #define FEND            0xC0
   #define FESC            0xDB
   #define TFEND           0xDC
@@ -80,7 +80,7 @@
   #define CMD_INT1_DATA   0x10
   #define CMD_INT2_DATA   0x20
   #define CMD_INT3_DATA   0x70
-  #define CMD_INT4_DATA   0x80
+  #define CMD_INT4_DATA   0x75
   #define CMD_INT5_DATA   0x90
   #define CMD_INT6_DATA   0xA0
   #define CMD_INT7_DATA   0xB0
@@ -92,8 +92,8 @@
   #define CMD_SEL_INT0    0x1E
   #define CMD_SEL_INT1    0x1F
   #define CMD_SEL_INT2    0x2F
-  #define CMD_SEL_INT3    0x7F
-  #define CMD_SEL_INT4    0x8F
+  #define CMD_SEL_INT3    0x74
+  #define CMD_SEL_INT4    0x7F
   #define CMD_SEL_INT5    0x9F
   #define CMD_SEL_INT6    0xAF
   #define CMD_SEL_INT7    0xBF

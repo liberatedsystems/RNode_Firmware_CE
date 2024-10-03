@@ -15,6 +15,7 @@
 
 #include "ROM.h"
 #include "Boards.h"
+#include <RadioLib.h>
 
 #ifndef CONFIG_H
 	#define CONFIG_H
@@ -95,10 +96,6 @@
 
     bool serial_in_frame = false;
 
-    FIFOBuffer packet_rdy_interfaces;
-
-    uint8_t packet_rdy_interfaces_buf[MAX_INTERFACES];
-
 	// Incoming packet buffer
 	uint8_t pbuf[MTU];
 
@@ -141,7 +138,57 @@
     // Subinterfaces
     // select interface 0 by default
     uint8_t interface = 0;
-    RadioInterface* selected_radio;
-    RadioInterface* interface_obj[INTERFACE_COUNT];
-    RadioInterface* interface_obj_sorted[INTERFACE_COUNT];
+    PhysicalLayer* selected_radio;
+    PhysicalLayer* interface_obj[INTERFACE_COUNT];
+    PhysicalLayer* interface_obj_sorted[INTERFACE_COUNT];
+    
+    // \todo move to another file
+    struct radio_vars {
+        bool radio_locked = false;
+        bool radio_online = false;
+        float st_airtime_limit = 0.0;
+        float lt_airtime_limit = 0.0;
+        bool airtime_lock = false;
+        uint16_t airtime_bins[AIRTIME_BINS] = {0};
+        uint16_t longterm_bins[AIRTIME_BINS] = {0};
+        float airtime = 0.0;
+        float longterm_airtime = 0.0;
+        float local_channel_util = 0.0;
+        float total_channel_util = 0.0;
+        float longterm_channel_util = 0.0;
+        uint32_t last_status_update = 0;
+        bool stat_signal_detected = false;
+        bool stat_signal_synced = false;
+        bool stat_rx_ongoing = false;
+        uint32_t last_dcd = 0;
+        uint16_t dcd_count = 0;
+        bool dcd = false;
+        bool dcd_led = false;
+        bool dcd_waiting = false;
+        long dcd_wait_until = 0;
+        bool util_samples[DCD_SAMPLES] = {false};
+        int dcd_sample = 0;
+        uint32_t post_tx_yield_timeout = 0;
+        uint8_t csma_p = 0;
+        int csma_slot_ms = 50;
+        float csma_p_min = 0.1;
+        float csma_p_max = 0.8;
+        long preamble_length = 0;
+        float lora_symbol_time_ms = 0.0;
+        float lora_symbol_rate = 0.0;
+        float lora_us_per_byte = 0.0;
+        uint32_t bitrate = 0;
+        int8_t txp = 0;
+        uint8_t sf = 0;
+        uint8_t cr = 0;
+        float bw = 0.0;
+        float freq = 0.0;
+    };
+
+    struct radio_vars radio_details[INTERFACE_COUNT];
+
+    SX1280* sx1280_interfaces[INTERFACE_COUNT];
+    SX1262* sx1262_interfaces[INTERFACE_COUNT];
+
+    volatile bool tx_flag = false;
 #endif

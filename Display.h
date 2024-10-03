@@ -378,11 +378,11 @@ void draw_bt_icon(int px, int py) {
   }
 }
 
-void draw_lora_icon(RadioInterface* radio, int px, int py) {
+void draw_lora_icon(uint8_t index, int px, int py) {
   // todo: make display show other interfaces
   if (radio_online) {
         #if DISPLAY == OLED
-                if (online_interface_list[interface_page] != radio->getIndex()) {
+                if (online_interface_list[interface_page] != index) {
                     stat_area.drawBitmap(px - 1, py-1, bm_dot_sqr, 18, 19, SSD1306_WHITE, SSD1306_BLACK);
 
                     // redraw stat area on next refresh
@@ -394,13 +394,13 @@ void draw_lora_icon(RadioInterface* radio, int px, int py) {
                 stat_area.drawBitmap(px, py, bm_rf+0*32, 16, 16, SSD1306_WHITE, SSD1306_BLACK);
                   }
         #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-                if (online_interface_list[interface_page] != radio->getIndex()) {
+                if (online_interface_list[interface_page] != index) {
                     stat_area.drawBitmap(px - 2, py - 2, bm_dot_sqr, 34, 36, GxEPD_WHITE, GxEPD_BLACK);
 
                     // redraw stat area on next refresh
                     stat_area_initialised = false;
                 }
-                  if (radio->getRadioOnline()) {
+                  if (radio_details[index].radio_online) {
                 stat_area.drawBitmap(px, py, bm_rf+1*128, 30, 32, GxEPD_WHITE, GxEPD_BLACK);
                   } else {
                 stat_area.drawBitmap(px, py, bm_rf+0*128, 30, 32, GxEPD_WHITE, GxEPD_BLACK);
@@ -417,7 +417,7 @@ void draw_lora_icon(RadioInterface* radio, int px, int py) {
 
 void draw_mw_icon(int px, int py) {
   if (INTERFACE_COUNT >= 2) {
-      if (interface_obj[1]->getRadioOnline()) {
+      if (radio_details[1].radio_online) {
         #if DISPLAY == OLED
             stat_area.drawBitmap(px, py, bm_rf+3*32, 16, 16, SSD1306_WHITE, SSD1306_BLACK);
         #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
@@ -527,7 +527,7 @@ void draw_battery_bars(int px, int py) {
 void draw_quality_bars(int px, int py) {
   signed char t_snr = (signed int)last_snr_raw;
   int snr_int = (int)t_snr;
-  float snr_min = Q_SNR_MIN_BASE-(int)interface_obj[interface_page]->getSpreadingFactor()*Q_SNR_STEP;
+  float snr_min = Q_SNR_MIN_BASE-(int)radio_details[interface_page].sf*Q_SNR_STEP;
   float snr_span = (Q_SNR_MAX-snr_min);
   float snr = ((int)snr_int) * 0.25;
   float quality = ((snr-snr_min)/(snr_span))*100;
@@ -641,7 +641,8 @@ void draw_signal_bars(int px, int py) {
 #define WF_PIXEL_WIDTH 22
 #endif
 void draw_waterfall(int px, int py) {
-  int rssi_val = interface_obj[interface_page]->currentRssi();
+    // \todo, this may not work, check
+  int rssi_val = interface_obj[interface_page]->getRSSI();
   if (rssi_val < WF_RSSI_MIN) rssi_val = WF_RSSI_MIN;
   if (rssi_val > WF_RSSI_MAX) rssi_val = WF_RSSI_MAX;
   int rssi_normalised = ((rssi_val - WF_RSSI_MIN)*(1.0/WF_RSSI_SPAN))*WF_PIXEL_WIDTH;
@@ -681,9 +682,9 @@ void draw_stat_area() {
     if (millis()-last_interface_page_flip >= page_interval) {
       int online_interfaces_check = 0;
 
-      // todo, is there a more efficient way of doing this?
+      // \todo, is there a more efficient way of doing this?
       for (int i = 0; i < INTERFACE_COUNT; i++) {
-          if (interface_obj[i]->getRadioOnline()) {
+          if (radio_details[i].radio_online) {
               online_interfaces_check++;
           }
       }
@@ -701,7 +702,7 @@ void draw_stat_area() {
       uint8_t index = 0;
 
       for (int i = 0; i < INTERFACE_COUNT; i++) {
-          if (interface_obj[i]->getRadioOnline()) {
+          if (radio_details[i].radio_online) {
               online_interface_list[index] = i;
               index++;
           }
@@ -716,27 +717,27 @@ void draw_stat_area() {
     #if DISPLAY == OLED
     draw_cable_icon(3, 8);
     draw_bt_icon(3, 30);
-    draw_lora_icon(interface_obj[0], 45, 8);
+    draw_lora_icon(0, 45, 8);
 
     // todo, expand support to show more than two interfaces on screen
     if (INTERFACE_COUNT > 1) {
-        draw_lora_icon(interface_obj[1], 45, 30);
+        draw_lora_icon(1, 45, 30);
     }
     draw_battery_bars(4, 58);
     #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
     draw_cable_icon(6, 18);
     draw_bt_icon(6, 60);
-    draw_lora_icon(interface_obj[0], 86, 18);
+    draw_lora_icon(0, 86, 18);
 
     // todo, expand support to show more than two interfaces on screen
     if (INTERFACE_COUNT > 1) {
-        draw_lora_icon(interface_obj[1], 86, 60);
+        draw_lora_icon(1, 86, 60);
     }
     draw_battery_bars(8, 113);
     #endif
     radio_online = false;
     for (int i = 0; i < INTERFACE_COUNT; i++) {
-        if (interface_obj[i]->getRadioOnline()) {
+        if (radio_details[i].radio_online) {
             radio_online = true;
             break;
         }
@@ -876,7 +877,6 @@ void draw_disp_area() {
           disp_area.drawBitmap(32+2, 50, bm_hg_high, 5, 9, SSD1306_BLACK, SSD1306_WHITE);
 
         #elif DISP_H == 122 && (DISPLAY == EINK_BW || DISPLAY == EINK_3C)
-          selected_radio = interface_obj[online_interface_list[interface_page]];
           disp_area.fillRect(0,12,disp_area.width(),57, GxEPD_BLACK); disp_area.fillRect(0,69,disp_area.width(),56, GxEPD_WHITE);
           disp_area.setFont(SMALL_FONT); disp_area.setTextWrap(false); disp_area.setTextColor(GxEPD_WHITE);
           disp_area.setTextSize(2); // scale text 2x
@@ -886,25 +886,25 @@ void draw_disp_area() {
           disp_area.setCursor(14*2, 22);
           disp_area.print("@");
           disp_area.setCursor(21*2, 22);
-          disp_area.printf("%.1fKbps", (float)(selected_radio->getBitrate())/1000.0);
+          disp_area.printf("%.1fKbps", (float)(radio_details[online_interface_list[interface_page]].bitrate)/1000.0);
 
           disp_area.setCursor(2, 36);
           disp_area.print("Airtime:");
 
           disp_area.setCursor(7+12, 53);
-          if (selected_radio->getTotalChannelUtil() < 0.099) {
-            disp_area.printf("%.1f%%", selected_radio->getAirtime()*100.0);
+          if (radio_details[online_interface_list[interface_page]].total_channel_util < 0.099) {
+            disp_area.printf("%.1f%%", radio_details[online_interface_list[interface_page]].airtime*100.0);
           } else {
-            disp_area.printf("%.0f%%", selected_radio->getAirtime()*100.0);
+            disp_area.printf("%.0f%%", radio_details[online_interface_list[interface_page]].airtime*100.0);
           }
 
           disp_area.drawBitmap(2, 41, bm_hg_low, 10, 18, GxEPD_WHITE, GxEPD_BLACK);
 
           disp_area.setCursor(64+17, 53);
-          if (selected_radio->getLongtermChannelUtil() < 0.099) {
-            disp_area.printf("%.1f%%", selected_radio->getLongtermAirtime()*100.0);
+          if (radio_details[online_interface_list[interface_page]].longterm_channel_util < 0.099) {
+            disp_area.printf("%.1f%%", radio_details[online_interface_list[interface_page]].longterm_airtime*100.0);
           } else {
-            disp_area.printf("%.0f%%", selected_radio->getLongtermAirtime()*100.0);
+            disp_area.printf("%.0f%%", radio_details[online_interface_list[interface_page]].longterm_airtime*100.0);
           }
           disp_area.drawBitmap(64, 41, bm_hg_high, 10, 18, GxEPD_WHITE, GxEPD_BLACK);
 
@@ -916,18 +916,18 @@ void draw_disp_area() {
           disp_area.print("Load:");
         
           disp_area.setCursor(7+12, 110);
-          if (selected_radio->getTotalChannelUtil() < 0.099) {
-            disp_area.printf("%.1f%%", selected_radio->getTotalChannelUtil()*100.0);
+          if (radio_details[online_interface_list[interface_page]].total_channel_util < 0.099) {
+            disp_area.printf("%.1f%%", radio_details[online_interface_list[interface_page]].total_channel_util*100.0);
           } else {
-            disp_area.printf("%.0f%%", selected_radio->getTotalChannelUtil()*100.0);
+            disp_area.printf("%.0f%%", radio_details[online_interface_list[interface_page]].total_channel_util*100.0);
           }
           disp_area.drawBitmap(2, 98, bm_hg_low, 10, 18, GxEPD_BLACK, GxEPD_WHITE);
 
           disp_area.setCursor(64+17, 110);
-          if (selected_radio->getLongtermChannelUtil() < 0.099) {
-            disp_area.printf("%.1f%%", selected_radio->getLongtermChannelUtil()*100.0);
+          if (radio_details[online_interface_list[interface_page]].longterm_channel_util < 0.099) {
+            disp_area.printf("%.1f%%", radio_details[online_interface_list[interface_page]].longterm_channel_util*100.0);
           } else {
-            disp_area.printf("%.0f%%", selected_radio->getLongtermChannelUtil()*100.0);
+            disp_area.printf("%.0f%%", radio_details[online_interface_list[interface_page]].longterm_channel_util*100.0);
           }
           disp_area.drawBitmap(64, 98, bm_hg_high, 10, 18, GxEPD_BLACK, GxEPD_WHITE);
         #endif

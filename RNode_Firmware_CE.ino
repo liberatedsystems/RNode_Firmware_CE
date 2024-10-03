@@ -16,6 +16,16 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include "Utilities.h"
+#include <RadioLib.h>
+
+#if PLATFORM == PLATFORM_ESP32 
+  #if defined(ESP32) and !defined(CONFIG_IDF_TARGET_ESP32S3)
+    #include "soc/rtc_wdt.h"
+  #endif
+  #define ISR_VECT IRAM_ATTR
+#else
+  #define ISR_VECT
+#endif
 
 #if MCU_VARIANT == MCU_NRF52
   #define INTERFACE_SPI
@@ -127,12 +137,12 @@ void setup() {
     pinMode(pin_led_tx, OUTPUT);
   #endif
 
-  for (int i = 0; i < INTERFACE_COUNT; i++) {
-    if (interface_pins[i][9] != -1) {
-        pinMode(interface_pins[i][9], OUTPUT);
-        digitalWrite(interface_pins[i][9], HIGH);
-    }
-  }
+//  for (int i = 0; i < INTERFACE_COUNT; i++) {
+//    if (interface_pins[i][9] != -1) {
+//        pinMode(interface_pins[i][9], OUTPUT);
+//        digitalWrite(interface_pins[i][9], HIGH);
+//    }
+//  }
 
   // Initialise buffers
   memset(pbuf, 0, sizeof(pbuf));
@@ -147,75 +157,206 @@ void setup() {
       packet_queue[i] = (uint8_t*)malloc(getQueueSize(i)+1);
   }
 
-  memset(packet_rdy_interfaces_buf, 0, sizeof(packet_rdy_interfaces_buf));
-
-  fifo_init(&packet_rdy_interfaces, packet_rdy_interfaces_buf, MAX_INTERFACES);
-
   // Create and configure interface objects
+  int16_t status;
   for (uint8_t i = 0; i < INTERFACE_COUNT; i++) {
       switch (interfaces[i]) {
-          case SX126X:
-          case SX1262:
+          //case SX126X:
+          case INT_SX1262:
           {
-              sx126x* obj;
-              // if default spi enabled
+              SX1262* radio;
+
+              // If default SPI
               if (interface_cfg[i][0]) {
-                obj = new sx126x(i, &SPI, interface_cfg[i][1],
-                interface_cfg[i][2], interface_pins[i][0], interface_pins[i][1],
-                interface_pins[i][2], interface_pins[i][3], interface_pins[i][6],
-                interface_pins[i][5], interface_pins[i][4], interface_pins[i][8]);
+                  radio = new SX1262(new Module(interface_pins[i][0], interface_pins[i][5], interface_pins[i][6], interface_pins[i][4]));
+              } else {
+                  interface_spi[0].begin();
+                  radio = new SX1262(new Module(interface_pins[i][0], interface_pins[i][5], interface_pins[i][6], interface_pins[i][4], interface_spi[0]));
               }
-              else {
-            obj = new sx126x(i, &interface_spi[i], interface_cfg[i][1],
-            interface_cfg[i][2], interface_pins[i][0], interface_pins[i][1],
-            interface_pins[i][2], interface_pins[i][3], interface_pins[i][6],
-            interface_pins[i][5], interface_pins[i][4], interface_pins[i][8]);
+              if (interface_pins[i][8] != -1) {
+                  // Enable antenna power
+                  pinMode(interface_pins[i][8], OUTPUT);
+                  digitalWrite(interface_pins[i][8], HIGH);
               }
-            interface_obj[i] = obj;
-            interface_obj_sorted[i] = obj;
-            break;
+              interface_obj[i] = (PhysicalLayer*)radio;
+              interface_obj_sorted[i] = (PhysicalLayer*)radio;
+              struct radio_vars* config = &radio_details[i];
+
+              // Init default modulation parameters
+              config->freq = 434.0;
+              config->sf = 5;
+              config->cr = 5;
+              config->bw = 125.0;
+
+              status = radio->begin(config->freq, config->bw, config->sf,  config->cr, 0x14, config->txp);
+              radio->setDio1Action(packet_received);
+              if (status == RADIOLIB_ERR_NONE) {
+                  status = radio->explicitHeader();
+              }
+              if (status == RADIOLIB_ERR_NONE) {
+                  status = radio->setCRC(2);
+              }
+              if (status == RADIOLIB_ERR_NONE) {
+                  status = radio->sleep();
+              }
+              if (status == RADIOLIB_ERR_NONE) {
+                  modems_installed = true;
+              }
+              break;
           }
 
-          case SX127X:
-          case SX1276:
-          case SX1278:
+          // \todo CURRENTLY NOT SUPPORTED DUE TO REQUIREMENT FOR DIO1 pin in RadioLib, should be fixed soon...
+          /*case INT_SX1272:
           {
-              sx127x* obj;
-              // if default spi enabled
+              SX1272* radio;
               if (interface_cfg[i][0]) {
-            obj = new sx127x(i, &SPI, interface_pins[i][0],
-            interface_pins[i][1], interface_pins[i][2], interface_pins[i][3],
-            interface_pins[i][6], interface_pins[i][5], interface_pins[i][4]);
+                  radio = new SX1272(new Module(interface_pins[i][0], interface_pins[i][5], interface_pins[i][6], RADIOLIB_NC));
+              } else {
+                  interface_spi[0].begin();
+                  radio = new SX1272(new Module(interface_pins[i][0], interface_pins[i][5], interface_pins[i][6], RADIOLIB_NC, interface_spi[0]));
               }
-              else {
-            obj = new sx127x(i, &interface_spi[i], interface_pins[i][0],
-            interface_pins[i][1], interface_pins[i][2], interface_pins[i][3],
-            interface_pins[i][6], interface_pins[i][5], interface_pins[i][4]);
-              }
-            interface_obj[i] = obj;
-            interface_obj_sorted[i] = obj;
-            break;
-          }
 
-          case SX128X:
-          case SX1280:
+              interface_obj[i] = (PhysicalLayer*)radio;
+              interface_obj_sorted[i] = (PhysicalLayer*)radio;
+              struct radio_vars* config = &radio_details[i];
+
+              // Init default modulation parameters
+              config->freq = 915.0;
+              config->sf = 7;
+              config->cr = 7;
+              config->bw = 125.0;
+
+              status = radio->begin(config->freq, config->bw, config->sf,  config->cr, 0x12, config->txp);
+              radio->setDio1Action(packet_received);
+              if (status == RADIOLIB_ERR_NONE) {
+                  status = radio->explicitHeader();
+              }
+              if (status == RADIOLIB_ERR_NONE) {
+                  status = radio->setCRC(2);
+              }
+              if (status == RADIOLIB_ERR_NONE) {
+                  status = radio->sleep();
+              }
+              if (status == RADIOLIB_ERR_NONE) {
+                  modems_installed = true;
+              }
+              break;
+          }
+          case INT_SX1276:
           {
-              sx128x* obj;
-              // if default spi enabled
+              SX1276* radio;
               if (interface_cfg[i][0]) {
-            obj = new sx128x(i, &SPI, interface_cfg[i][1],
-            interface_pins[i][0], interface_pins[i][1], interface_pins[i][2],
-            interface_pins[i][3], interface_pins[i][6], interface_pins[i][5],
-            interface_pins[i][4], interface_pins[i][8], interface_pins[i][7]);
+                  radio = new SX1276(new Module(interface_pins[i][0], interface_pins[i][5], interface_pins[i][6], RADIOLIB_NC));
+              } else {
+                  interface_spi[0].begin();
+              }radio = new SX1276(new Module(interface_pins[i][0], interface_pins[i][5], interface_pins[i][6], RADIOLIB_NC, interface_spi[0]));
+              }
+
+              interface_obj[i] = (PhysicalLayer*)radio;
+              interface_obj_sorted[i] = (PhysicalLayer*)radio;
+              struct radio_vars* config = &radio_details[i];
+
+              // Init default modulation parameters
+              config->freq = 434.0;
+              config->sf = 7;
+              config->cr = 7;
+              config->bw = 125.0;
+
+              status = radio->begin(config->freq, config->bw, config->sf,  config->cr, 0x12, config->txp);
+              radio->setDio1Action(packet_received);
+              if (status == RADIOLIB_ERR_NONE) {
+                  status = radio->explicitHeader();
+              }
+              if (status == RADIOLIB_ERR_NONE) {
+                  status = radio->setCRC(2);
+              }
+              if (status == RADIOLIB_ERR_NONE) {
+                  status = radio->sleep();
+              }
+              if (status == RADIOLIB_ERR_NONE) {
+                  modems_installed = true;
+              }
+              break;
+          }
+          case INT_SX1278:
+          {
+              SX1278* radio;
+              if (interface_cfg[i][0]) {
+                  radio = new SX1278(new Module(interface_pins[i][0], interface_pins[i][5], interface_pins[i][6], RADIOLIB_NC));
+              } else {
+                  interface_spi[0].begin();
+                  radio = new SX1278(new Module(interface_pins[i][0], interface_pins[i][5], interface_pins[i][6], RADIOLIB_NC, interface_spi[0]));
+              }
+
+              interface_obj[i] = (PhysicalLayer*)radio;
+              interface_obj_sorted[i] = (PhysicalLayer*)radio;
+              struct radio_vars* config = &radio_details[i];
+
+              // Init default modulation parameters
+              config->freq = 434.0;
+              config->sf = 7;
+              config->cr = 7;
+              config->bw = 125.0;
+
+              status = radio->begin(config->freq, config->bw, config->sf,  config->cr, 0x12, config->txp);
+              radio->setDio1Action(packet_received);
+              if (status == RADIOLIB_ERR_NONE) {
+                  status = radio->explicitHeader();
+              }
+              if (status == RADIOLIB_ERR_NONE) {
+                  status = radio->setCRC(2);
+              }
+              if (status == RADIOLIB_ERR_NONE) {
+                  status = radio->sleep();
+              }
+              if (status == RADIOLIB_ERR_NONE) {
+                  modems_installed = true;
+              }
+              break;
+          }
+          */
+
+          case INT_SX1280:
+          {
+
+            SX1280* radio;
+
+            // If default SPI
+            if (interface_cfg[i][0]) {
+                radio = new SX1280(new Module(interface_pins[i][0], interface_pins[i][5], interface_pins[i][6], interface_pins[i][4]));
+            } else {
+                interface_spi[0].begin();
+                radio = new SX1280(new Module(interface_pins[i][0], interface_pins[i][5], interface_pins[i][6], interface_pins[i][4], interface_spi[0]));
             }
-            else {
-            obj = new sx128x(i, &interface_spi[i], interface_cfg[i][1],
-            interface_pins[i][0], interface_pins[i][1], interface_pins[i][2],
-            interface_pins[i][3], interface_pins[i][6], interface_pins[i][5],
-            interface_pins[i][4], interface_pins[i][8], interface_pins[i][7]);
+
+            // If TXEN and RXEN pins set
+            if (interface_pins[i][8] != -1 && interface_pins[i][7] != -1) {
+                radio->setRfSwitchPins(interface_pins[i][8], interface_pins[i][7]);
             }
-            interface_obj[i] = obj;
-            interface_obj_sorted[i] = obj;
+            interface_obj[i] = (PhysicalLayer*)radio;
+            interface_obj_sorted[i] = (PhysicalLayer*)radio;
+            struct radio_vars* config = &radio_details[i];
+
+            // Init default modulation parameters
+            config->freq = 2401.0;
+            config->sf = 5;
+            config->cr = 5;
+            config->bw = 203.125;
+
+            status = radio->begin(config->freq, config->bw, config->sf,  config->cr, 0x14, config->txp);
+            radio->setDio1Action(packet_received);
+            if (status == RADIOLIB_ERR_NONE) {
+                status = radio->explicitHeader();
+            }
+            if (status == RADIOLIB_ERR_NONE) {
+                status = radio->setCRC(2);
+            }
+            if (status == RADIOLIB_ERR_NONE) {
+                status = radio->sleep();
+            }
+            if (status == RADIOLIB_ERR_NONE) {
+                modems_installed = true;
+            }
             break;
           }
           
@@ -226,45 +367,51 @@ void setup() {
 
     // Check installed transceiver chip(s) and probe boot parameters. If any of
     // the configured modems cannot be initialised, do not boot
-    for (int i = 0; i < INTERFACE_COUNT; i++) {
+    /*for (int i = 0; i < INTERFACE_COUNT; i++) {
+        int16_t status = 0;
         switch (interfaces[i]) {
             case SX126X:
             case SX1262:
+                // \todo
+                break;
             case SX127X:
             case SX1276:
             case SX1278:
+                // \todo
+                break;
             case SX128X:
             case SX1280:
-                selected_radio = interface_obj[i];
+                status = interface_obj[i]->begin();
                 break;
 
             default:
                 modems_installed = false;
                 break;
         }
-        if (selected_radio->preInit()) {
-          modems_installed = true;
-          uint32_t lfr = selected_radio->getFrequency();
-          if (lfr == 0) {
-            // Normal boot
-          } else if (lfr == M_FRQ_R) {
-            // Quick reboot
-            #if HAS_CONSOLE
-              if (rtc_get_reset_reason(0) == POWERON_RESET) {
-                console_active = true;
-              }
-            #endif
-          } else {
-            // Unknown boot
-          }
-          selected_radio->setFrequency(M_FRQ_S);
-        } else {
-          modems_installed = false;
-        }
-        if (!modems_installed) {
-            break;
-        }
-    }
+        if (status == RADIOLIB_ERR_NONE) {
+          modems_installed = true;*/
+          // \todo, fixme
+          //uint32_t lfr = selected_radio->getFrequency();
+          //if (lfr == 0) {
+          //  // Normal boot
+          //} else if (lfr == M_FRQ_R) {
+          //  // Quick reboot
+          //  #if HAS_CONSOLE
+          //    if (rtc_get_reset_reason(0) == POWERON_RESET) {
+          //      console_active = true;
+          //    }
+          //  #endif
+          //} else {
+          //  // Unknown boot
+          //}
+    //    } else {
+    //      modems_installed = false;
+    //    }
+    //    if (!modems_installed) {
+    //        break;
+    //    }
+    //}
+    //modems_installed = true;
 
   #if HAS_DISPLAY
     #if HAS_EEPROM
@@ -307,12 +454,17 @@ void setup() {
   validate_status();
 }
 
-void lora_receive(RadioInterface* radio) {
-  if (!implicit) {
-    radio->receive();
-  } else {
-    radio->receive(implicit_l);
-  }
+void ISR_VECT packet_received() {
+    if (!tx_flag) {
+        for (int i = 0; i < INTERFACE_COUNT; i++) {
+            if (digitalRead(interface_pins[i][5])) {
+                receive_callback(interface_obj[i], i, interface_obj[i]->getPacketLength());
+                break;
+            }
+        }
+    } else {
+        tx_flag = false;
+    }
 }
 
 inline void kiss_write_packet(int index) {
@@ -335,23 +487,28 @@ inline void kiss_write_packet(int index) {
   packet_ready = false;
 }
 
-inline void getPacketData(RadioInterface* radio, uint16_t len) {
-  while (len-- && read_len < MTU) {
-    pbuf[read_len++] = radio->read();
-  }
+inline void getPacketData(uint8_t* data, uint16_t len) {
+    memcpy(pbuf+read_len, data, len);
+    read_len += len;
 }
 
-void receive_callback(uint8_t index, int packet_size) {
+
+void receive_callback(PhysicalLayer* radio, uint8_t index, int packet_size) {
         selected_radio = interface_obj[index];
     bool    ready    = false;
+    uint8_t tempbuf[MAX_PKT_LENGTH];
   if (!promisc) {
     // The standard operating mode allows large
     // packets with a payload up to 500 bytes,
     // by combining two raw LoRa packets.
     // We read the 1-byte header and extract
     // packet sequence number and split flags
+
+    radio->readData(tempbuf, packet_size);
     
-    uint8_t header   = selected_radio->read(); packet_size--;
+    uint8_t header   = tempbuf[0]; packet_size--;
+    uint8_t* tempbufp = tempbuf;
+    tempbufp++;
     uint8_t sequence = packetSequence(header);
 
     if (isSplitPacket(header) && seq == SEQ_UNSET) {
@@ -361,14 +518,14 @@ void receive_callback(uint8_t index, int packet_size) {
       read_len = 0;
       seq = sequence;
 
-      getPacketData(selected_radio, packet_size);
+      getPacketData(tempbufp, packet_size);
 
     } else if (isSplitPacket(header) && seq == sequence) {
       // This is the second part of a split
       // packet, so we add it to the buffer
       // and set the ready flag.
       
-      getPacketData(selected_radio, packet_size);
+      getPacketData(tempbufp, packet_size);
 
       seq = SEQ_UNSET;
       packet_interface = index;
@@ -382,7 +539,7 @@ void receive_callback(uint8_t index, int packet_size) {
       read_len = 0;
       seq = sequence;
 
-      getPacketData(selected_radio, packet_size);
+      getPacketData(tempbufp, packet_size);
 
     } else if (!isSplitPacket(header)) {
       // This is not a split packet, so we
@@ -396,7 +553,7 @@ void receive_callback(uint8_t index, int packet_size) {
         seq = SEQ_UNSET;
       }
 
-      getPacketData(selected_radio, packet_size);
+      getPacketData(tempbufp, packet_size);
 
       packet_interface = index;
       packet_ready = true;
@@ -405,22 +562,57 @@ void receive_callback(uint8_t index, int packet_size) {
     // In promiscuous mode, raw packets are
     // output directly to the host
     read_len = 0;
+    radio->readData(tempbuf, packet_size);
 
-    getPacketData(selected_radio, packet_size);
+    getPacketData(tempbuf, packet_size);
 
     packet_interface = index;
     packet_ready = true;
   }
 
+  radio->startReceive();
+
   last_rx = millis();
 }
 
-bool startRadio(RadioInterface* radio) {
-  update_radio_lock(radio);
+bool startRadio(PhysicalLayer* radio, uint8_t index) {
+    struct radio_vars* config = &radio_details[index];
+  //update_radio_lock(radio);
   
-  if (modems_installed && !console_active) {
-    if (!radio->getRadioLock() && hw_ready) {
-      if (!radio->begin()) {
+  //if (modems_installed && !console_active) {
+    //if (!radio->getRadioLock() && hw_ready) {
+
+      int16_t status = 0;
+      switch (interfaces[index]) {
+          case INT_SX1262:
+              // wake up module
+              digitalWrite(interface_pins[index][0], LOW);
+              delay(10);
+              digitalWrite(interface_pins[index][0], HIGH);
+              status = radio->standby();
+              update_radio_params(radio, config);
+              radio->setFrequency(config->freq);
+              break;
+          case INT_SX1276:
+          case INT_SX1278:
+              // \todo
+              break;
+          case INT_SX1280:
+              // wake up module
+              digitalWrite(interface_pins[index][0], LOW);
+              delay(10);
+              digitalWrite(interface_pins[index][0], HIGH);
+              status = radio->standby();
+              update_radio_params(radio, config);
+              radio->setFrequency(config->freq);
+              break;
+
+          default:
+              modems_installed = false;
+              break;
+      }
+
+    if (status != RADIOLIB_ERR_NONE) {
         // The radio could not be started.
         // Indicate this failure over both the
         // serial port and with the onboard LEDs
@@ -428,64 +620,72 @@ bool startRadio(RadioInterface* radio) {
         led_indicate_error(0);
         return false;
       } else {
-        radio->enableCrc();
-
-        radio->onReceive(receive_callback);
-
-        radio->updateBitrate();
-        sort_interfaces();
-        kiss_indicate_phy_stats(radio);
-
-        lora_receive(radio);
+        status = radio->startReceive();
+        if (status == RADIOLIB_ERR_NONE) {
+            config->radio_online = true;
+            update_bitrate(radio, index);
+            kiss_indicate_phy_stats(index);
+        }
+        else {
+            // RX failed
+            kiss_indicate_error(ERROR_INITRADIO);
+            led_indicate_error(0);
+            return false;
+        }
+        // \todo enable again
+        //sort_interfaces();
 
         // Flash an info pattern to indicate
         // that the radio is now on
-        kiss_indicate_radiostate(radio);
+        kiss_indicate_radiostate(index);
         led_indicate_info(3);
         return true;
       }
 
-    } else {
-      // Flash a warning pattern to indicate
-      // that the radio was locked, and thus
-      // not started
-      kiss_indicate_radiostate(radio);
-      led_indicate_warning(3);
-      return false;
-    }
-  } else {
-    // If radio is already on, we silently
-    // ignore the request.
-    kiss_indicate_radiostate(radio);
-    return true;
-  }
+    //} else {
+    //  // Flash a warning pattern to indicate
+    //  // that the radio was locked, and thus
+    //  // not started
+    //  kiss_indicate_radiostate(radio);
+    //  led_indicate_warning(3);
+    //  return false;
+    //}
+  //} else {
+  //  // If radio is already on, we silently
+  //  // ignore the request.
+  //  kiss_indicate_radiostate(radio);
+  //  return true;
+  //}
 }
 
-void stopRadio(RadioInterface* radio) {
-  radio->end();
-  sort_interfaces();
-  kiss_indicate_radiostate(radio);
+void stopRadio(PhysicalLayer* radio, uint8_t index) {
+    struct radio_vars* config = &radio_details[index];
+    radio->sleep();
+    config->radio_online = false;
+    // \todo finish
+  //sort_interfaces();
+  //kiss_indicate_radiostate(radio);
 }
 
-void update_radio_lock(RadioInterface* radio) {
-  if (radio->getFrequency() != 0 && radio->getSignalBandwidth() != 0 && radio->getTxPower() != 0xFF && radio->getSpreadingFactor() != 0) {
-    radio->setRadioLock(false);
-  } else {
-    radio->setRadioLock(true);
-  }
+void update_radio_lock(PhysicalLayer* radio, uint8_t index) {
+    // \todo finish
+  //if (radio->getFrequency() != 0 && radio->getSignalBandwidth() != 0 && radio->getTxPower() != 0xFF && radio->getSpreadingFactorVal() != 0) {
+  radio_details[index].radio_locked =  false;
+  //} else {
+  //  radio->setRadioLock(true);
+  //}
 }
 
 // Check if the queue is full for the selected radio.
 // Returns true if full, false if not
-bool queueFull(RadioInterface* radio) {
-  return (queue_height[radio->getIndex()] >= (CONFIG_QUEUE_MAX_LENGTH) || queued_bytes[radio->getIndex()] >= (getQueueSize(radio->getIndex())));
+bool queueFull(uint8_t index) {
+  return (queue_height[index] >= (CONFIG_QUEUE_MAX_LENGTH) || queued_bytes[index] >= (getQueueSize(index)));
 }
 
 volatile bool queue_flushing = false;
 
 // Flushes all packets for the interface
-void flushQueue(RadioInterface* radio) {
-    uint8_t index = radio->getIndex();
+void flushQueue(PhysicalLayer* radio, uint8_t index) {
   if (!queue_flushing) {
     queue_flushing = true;
 
@@ -502,51 +702,64 @@ void flushQueue(RadioInterface* radio) {
           uint16_t pos = (start+i)%(getQueueSize(index));
           tbuf[i] = packet_queue[index][pos];
         }
-        transmit(radio, length);
+        transmit(radio, index, length);
         processed++;
       }
     }
 
-    lora_receive(radio);
+    radio->startReceive();
     led_tx_off();
 
-    radio->setPostTxYieldTimeout(millis()+(lora_post_tx_yield_slots*selected_radio->getCSMASlotMS()));
+    radio_details[index].post_tx_yield_timeout =  millis()+(lora_post_tx_yield_slots*(radio_details[index].csma_slot_ms));
   }
 
   queue_height[index] = 0;
   queued_bytes[index] = 0;
-  selected_radio->updateAirtime();
+  update_airtime(index);
   queue_flushing = false;
 }
 
-void transmit(RadioInterface* radio, uint16_t size) {
-  if (radio->getRadioOnline()) { 
+void transmit(PhysicalLayer* radio, uint8_t index, uint16_t size) {
+  if (radio_details[index].radio_online) { 
+      int16_t status;
     if (!promisc) {
       uint16_t  written = 0;
       uint8_t header  = random(256) & 0xF0;
+      uint8_t txbuf[SINGLE_MTU] = {0};
 
       if (size > SINGLE_MTU - HEADER_L) {
         header = header | FLAG_SPLIT;
       }
 
-
-      radio->beginPacket();
-      radio->write(header); written++;
+      txbuf[0] = header; written++;
 
       for (uint16_t i=0; i < size; i++) {
-        radio->write(tbuf[i]);
+          txbuf[written] = tbuf[i];
 
-        written++;
+          written++;
 
-        if (written == 255) {
-          radio->endPacket(); radio->addAirtime(written);
-          radio->beginPacket();
-          radio->write(header);
-          written = 1;
-        }
+          if (written == 255) {
+              tx_flag = true;
+              status = radio->transmit(txbuf, written); add_airtime(index, written);
+              if (status != RADIOLIB_ERR_NONE) {
+                  serial_write(status);
+                  kiss_indicate_error(ERROR_TXFAILED);
+                  led_indicate_error(5);
+              }
+              txbuf[0] = header;
+              written = 1;
+          }
       }
 
-      radio->endPacket(); radio->addAirtime(written);
+      tx_flag = true;
+      status = radio->transmit(txbuf, written); add_airtime(index, written);
+
+      if (status != RADIOLIB_ERR_NONE) {
+                  serial_write(status >> 8);
+                  serial_write(status & 0x00FF);
+          kiss_indicate_error(ERROR_TXFAILED);
+          led_indicate_error(5);
+      }
     } else {
       // In promiscuous mode, we only send out
       // plain raw LoRa packets with a maximum
@@ -558,21 +771,17 @@ void transmit(RadioInterface* radio, uint16_t size) {
       if (size > SINGLE_MTU) {
         size = SINGLE_MTU;
       }
-
+    
+      // \todo check this with radiolib
       // If implicit header mode has been set,
       // set packet length to payload data length
-      if (!implicit) {
-        radio->beginPacket();
-      } else {
-        radio->beginPacket(size);
-      }
+      //if (!implicit) {
+      //  radio->beginPacket();
+      //} else {
+      //  radio->beginPacket(size);
+      //}
 
-      for (uint16_t i=0; i < size; i++) {
-        radio->write(tbuf[i]);
-
-        written++;
-      }
-      radio->endPacket(); radio->addAirtime(written);
+      radio->transmit(tbuf, size); add_airtime(index, written);
     }
     last_tx = millis();
   } else {
@@ -696,10 +905,17 @@ void serialCallback(uint8_t sbyte) {
 
           selected_radio = interface_obj[interface];
           if (freq == 0) {
-            kiss_indicate_frequency(selected_radio);
+            kiss_indicate_frequency(interface);
           } else {
-            if (op_mode == MODE_HOST) selected_radio->setFrequency(freq);
-            kiss_indicate_frequency(selected_radio);
+              int16_t status = RADIOLIB_ERR_NONE;
+            float freq_f = freq / 1000000.0;
+            if (radio_details[interface].radio_online) {
+                if (op_mode == MODE_HOST) status = selected_radio->setFrequency(freq_f);
+            }
+            if (status == RADIOLIB_ERR_NONE) {
+                radio_details[interface].freq = freq_f;
+            }
+            kiss_indicate_frequency(interface);
           }
           interface = 0;
         }
@@ -721,13 +937,18 @@ void serialCallback(uint8_t sbyte) {
           selected_radio = interface_obj[interface];
 
           if (bw == 0) {
-            kiss_indicate_bandwidth(selected_radio);
+            kiss_indicate_bandwidth(interface);
           } else {
-            if (op_mode == MODE_HOST) selected_radio->setSignalBandwidth(bw);
-            selected_radio->updateBitrate();
+            float bw_f = bw / 1000.0;
+            if (radio_details[interface].radio_online) {
+                if (op_mode == MODE_HOST) set_bandwidth(selected_radio, interface, bw_f);
+                update_bitrate(selected_radio, interface);
+                kiss_indicate_phy_stats(interface);
+            } else {
+                radio_details[interface].bw = bw_f;
+            }
             sort_interfaces();
-            kiss_indicate_bandwidth(selected_radio);
-            kiss_indicate_phy_stats(selected_radio);
+            kiss_indicate_bandwidth(interface);
           }
           interface = 0;
         }
@@ -735,45 +956,57 @@ void serialCallback(uint8_t sbyte) {
       selected_radio = interface_obj[interface];
 
       if (sbyte == 0xFF) {
-        kiss_indicate_txpower(selected_radio);
+        kiss_indicate_txpower(interface);
       } else {
         int8_t txp = (int8_t)sbyte;
 
-        if (op_mode == MODE_HOST) setTXPower(selected_radio, txp);
-        kiss_indicate_txpower(selected_radio);
+        if (radio_details[interface].radio_online) {
+            if (op_mode == MODE_HOST) setTXPower(selected_radio, interface, txp);
+        } else {
+            radio_details[interface].txp = txp;
+        }
+        kiss_indicate_txpower(interface);
       }
       interface = 0;
     } else if (command == CMD_SF) {
       selected_radio = interface_obj[interface];
 
       if (sbyte == 0xFF) {
-        kiss_indicate_spreadingfactor(selected_radio);
+        kiss_indicate_spreadingfactor(interface);
       } else {
         int sf = sbyte;
         if (sf < 5) sf = 5;
         if (sf > 12) sf = 12;
 
-        if (op_mode == MODE_HOST) selected_radio->setSpreadingFactor(sf);
-        selected_radio->updateBitrate();
+        if (radio_details[interface].radio_online) {
+            if (op_mode == MODE_HOST) set_spreading_factor(selected_radio, interface, sf);
+            update_bitrate(selected_radio, interface);
+            kiss_indicate_phy_stats(interface);
+        } else {
+            radio_details[interface].sf = sf;
+        }
         sort_interfaces();
-        kiss_indicate_spreadingfactor(selected_radio);
-        kiss_indicate_phy_stats(selected_radio);
+        kiss_indicate_spreadingfactor(interface);
       }
       interface = 0;
     } else if (command == CMD_CR) {
       selected_radio = interface_obj[interface];
       if (sbyte == 0xFF) {
-        kiss_indicate_codingrate(selected_radio);
+        kiss_indicate_codingrate(interface);
       } else {
         int cr = sbyte;
         if (cr < 5) cr = 5;
         if (cr > 8) cr = 8;
 
-        if (op_mode == MODE_HOST) selected_radio->setCodingRate4(cr);
-        selected_radio->updateBitrate();
+        if (radio_details[interface].radio_online) {
+            if (op_mode == MODE_HOST) set_coding_rate(selected_radio, interface, cr);
+            update_bitrate(selected_radio, interface);
+            kiss_indicate_phy_stats(interface);
+        } else {
+            radio_details[interface].cr = cr;
+        }
         sort_interfaces();
-        kiss_indicate_codingrate(selected_radio);
-        kiss_indicate_phy_stats(selected_radio);
+        kiss_indicate_codingrate(interface);
       }
       interface = 0;
     } else if (command == CMD_IMPLICIT) {
@@ -791,11 +1024,11 @@ void serialCallback(uint8_t sbyte) {
       selected_radio = interface_obj[interface];
       if (bt_state != BT_STATE_CONNECTED) cable_state = CABLE_STATE_CONNECTED;
       if (sbyte == 0xFF) {
-        kiss_indicate_radiostate(selected_radio);
+        kiss_indicate_radiostate(interface);
       } else if (sbyte == 0x00) {
-        stopRadio(selected_radio);
+        stopRadio(selected_radio, interface);
       } else if (sbyte == 0x01) {
-        startRadio(selected_radio);
+        startRadio(selected_radio, interface);
       }
       interface = 0;
     } else if (command == CMD_ST_ALOCK) {
@@ -815,13 +1048,13 @@ void serialCallback(uint8_t sbyte) {
           uint16_t at = (uint16_t)cmdbuf[0] << 8 | (uint16_t)cmdbuf[1];
 
           if (at == 0) {
-            selected_radio->setSTALock(0.0);
+            radio_details[interface].st_airtime_limit = 0.0;
           } else {
             int st_airtime_limit = (float)at/(100.0*100.0);
             if (st_airtime_limit >= 1.0) { st_airtime_limit = 0.0; }
-            selected_radio->setSTALock(st_airtime_limit);
+            radio_details[interface].st_airtime_limit = st_airtime_limit;
           }
-          kiss_indicate_st_alock(selected_radio);
+          kiss_indicate_st_alock(interface);
         }
         interface = 0;
     } else if (command == CMD_LT_ALOCK) {
@@ -841,13 +1074,13 @@ void serialCallback(uint8_t sbyte) {
           uint16_t at = (uint16_t)cmdbuf[0] << 8 | (uint16_t)cmdbuf[1];
 
           if (at == 0) {
-            selected_radio->setLTALock(0.0);
+            radio_details[interface].lt_airtime_limit = 0.0;
           } else {
             int lt_airtime_limit = (float)at/(100.0*100.0);
             if (lt_airtime_limit >= 1.0) { lt_airtime_limit = 0.0; }
-            selected_radio->setLTALock(lt_airtime_limit);
+            radio_details[interface].lt_airtime_limit = lt_airtime_limit;
           }
-          kiss_indicate_lt_alock(selected_radio);
+          kiss_indicate_lt_alock(interface);
         }
         interface = 0;
     } else if (command == CMD_STAT_RX) {
@@ -858,8 +1091,8 @@ void serialCallback(uint8_t sbyte) {
       kiss_indicate_stat_rssi();
     } else if (command == CMD_RADIO_LOCK) {
       selected_radio = interface_obj[interface];
-      update_radio_lock(selected_radio);
-      kiss_indicate_radio_lock(selected_radio);
+      update_radio_lock(selected_radio, interface);
+      kiss_indicate_radio_lock(interface);
       interface = 0;
     } else if (command == CMD_BLINK) {
       led_indicate_info(sbyte);
@@ -883,7 +1116,7 @@ void serialCallback(uint8_t sbyte) {
       kiss_indicate_promisc();
     } else if (command == CMD_READY) {
       selected_radio = interface_obj[interface];
-      if (!queueFull(selected_radio)) {
+      if (!queueFull(interface)) {
         kiss_indicate_ready();
       } else {
         kiss_indicate_not_ready();
@@ -1175,8 +1408,8 @@ void loop() {
         #elif MCU_VARIANT == MCU_NRF52
         portENTER_CRITICAL();
         #endif
-        last_rssi = selected_radio->packetRssi();
-        last_snr_raw = selected_radio->packetSnrRaw();
+        last_rssi = selected_radio->getRSSI();
+        last_snr_raw = selected_radio->getSNR(); // \todo, this is not the raw value, a conversion will be required to get this value correct!!
         #if MCU_VARIANT == MCU_ESP32
         portEXIT_CRITICAL(&update_lock);
         #elif MCU_VARIANT == MCU_NRF52
@@ -1189,9 +1422,9 @@ void loop() {
 
     bool ready = false;
     for (int i = 0; i < INTERFACE_COUNT; i++) {
-        selected_radio = interface_obj[i];
-        if (selected_radio->getRadioOnline()) {
-            selected_radio->checkModemStatus();
+        struct radio_vars* config = &radio_details[i];
+        if (config->radio_online) {
+            check_modem_status(interface_obj[i], i);
             ready = true;
         }
     }
@@ -1200,44 +1433,32 @@ void loop() {
   // If at least one radio is online then we can continue
   if (ready) {
     for (int i = 0; i < INTERFACE_COUNT; i++) {
-        selected_radio = interface_obj_sorted[i];
+        struct radio_vars* config = &radio_details[i];
+        selected_radio = interface_obj[i];//_sorted[i];
 
-        if (selected_radio->calculateALock() || !selected_radio->getRadioOnline()) {
+        if (calculate_alock(config) || !config->radio_online) {
             // skip this interface
             continue;
         }
 
-        // If a higher data rate interface has received a packet after its
-        // loop, it still needs to be the first to transmit, so check if this
-        // is the case.
-        for (int j = 0; j < INTERFACE_COUNT; j++) {
-            if (!interface_obj_sorted[j]->calculateALock() && interface_obj_sorted[j]->getRadioOnline()) {
-                if (interface_obj_sorted[j]->getBitrate() > selected_radio->getBitrate()) {
-                    if (queue_height[interface_obj_sorted[j]->getIndex()] > 0) {
-                        selected_radio = interface_obj_sorted[j];
-                    }
-                }
-            }
-        }
-
-        if (queue_height[selected_radio->getIndex()] > 0) {
+        if (queue_height[i] > 0) {
             uint32_t check_time = millis();
-            if (check_time > selected_radio->getPostTxYieldTimeout()) {
-                if (selected_radio->getDCDWaiting() && (check_time >= selected_radio->getDCDWaitUntil())) { selected_radio->setDCDWaiting(false); }
-                if (!selected_radio->getDCDWaiting()) {
+            if (check_time > config->post_tx_yield_timeout) {
+                if (config->dcd_waiting && (check_time >= config->dcd_wait_until)) { config->dcd_waiting = false; }
+                if (!config->dcd_waiting) {
                     // todo, will the delay here slow down transmission with
                     // multiple interfaces? needs investigation
                     for (uint8_t dcd_i = 0; dcd_i < DCD_THRESHOLD*2; dcd_i++) {
-                        delay(STATUS_INTERVAL_MS); selected_radio->updateModemStatus();
+                        delay(STATUS_INTERVAL_MS); update_modem_status(selected_radio, i);
                     }
 
-                    if (!selected_radio->getDCD()) {
+                    if (!config->dcd) {
                         uint8_t csma_r = (uint8_t)random(256);
-                        if (selected_radio->getCSMAp() >= csma_r) {
-                            flushQueue(selected_radio);
+                        if (config->csma_p >= csma_r) {
+                            flushQueue(selected_radio, i);
                         } else {
-                            selected_radio->setDCDWaiting(true);
-                            selected_radio->setDCDWaitUntil(millis()+selected_radio->getCSMASlotMS());
+                            config->dcd_waiting = true;
+                            config->dcd_wait_until = millis()+config->csma_slot_ms;
                         }
                     }
                 }
@@ -1258,7 +1479,7 @@ void loop() {
       led_indicate_not_ready();
       // shut down all radio interfaces
       for (int i = 0; i < INTERFACE_COUNT; i++) {
-          stopRadio(interface_obj[i]);
+          stopRadio(interface_obj[i], i);
       }
     }
   }

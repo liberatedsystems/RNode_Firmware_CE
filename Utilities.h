@@ -20,6 +20,10 @@
 #include <algorithm>
 #include <iterator>
 
+// For CSMA
+#define _e 2.71828183
+#define _S 10.0
+
 #if HAS_EEPROM 
     #include <EEPROM.h>
 #elif PLATFORM == PLATFORM_NRF52
@@ -565,16 +569,9 @@ int8_t  led_standby_direction = 0;
 	#endif
 #endif
 
-
-bool interface_bitrate_cmp(RadioInterface* p, RadioInterface* q) {
-    long p_bitrate = p->getBitrate();
-    long q_bitrate = q->getBitrate();
-    return p_bitrate > q_bitrate;
-}
-
 // Sort interfaces in descending order according to bitrate.
 void sort_interfaces() {
-    std::sort(std::begin(interface_obj_sorted), std::end(interface_obj_sorted), interface_bitrate_cmp);
+    //std::sort(std::begin(interface_obj_sorted), std::end(interface_obj_sorted), interface_bitrate_cmp);
 }
 
 void serial_write(uint8_t byte) {
@@ -621,10 +618,10 @@ void kiss_indicate_error(uint8_t error_code) {
 	serial_write(FEND);
 }
 
-void kiss_indicate_radiostate(RadioInterface* radio) {
+void kiss_indicate_radiostate(uint8_t index) {
 	serial_write(FEND);
 	serial_write(CMD_RADIO_STATE);
-	serial_write(radio->getRadioOnline());
+	serial_write(radio_details[index].radio_online);
 	serial_write(FEND);
 }
 
@@ -665,24 +662,25 @@ void kiss_indicate_stat_snr() {
 	serial_write(FEND);
 }
 
-void kiss_indicate_radio_lock(RadioInterface* radio) {
+void kiss_indicate_radio_lock(uint8_t index) {
 	serial_write(FEND);
 	serial_write(CMD_RADIO_LOCK);
-	serial_write(radio->getRadioLock());
+	serial_write(radio_details[index].radio_locked);
 	serial_write(FEND);
 }
 
-void kiss_indicate_spreadingfactor(RadioInterface* radio) {
+void kiss_indicate_spreadingfactor(uint8_t index) {
+    // \todo, add ability to choose FSK when multiple modem mode support added
 	serial_write(FEND);
 	serial_write(CMD_SF);
-	serial_write(radio->getSpreadingFactor());
+	serial_write(radio_details[index].sf);
 	serial_write(FEND);
 }
 
-void kiss_indicate_codingrate(RadioInterface* radio) {
+void kiss_indicate_codingrate(uint8_t index) {
 	serial_write(FEND);
 	serial_write(CMD_CR);
-	serial_write(radio->getCodingRate4());
+	serial_write(radio_details[index].cr);
 	serial_write(FEND);
 }
 
@@ -693,16 +691,16 @@ void kiss_indicate_implicit_length() {
 	serial_write(FEND);
 }
 
-void kiss_indicate_txpower(RadioInterface* radio) {
-    int8_t txp = radio->getTxPower();
+void kiss_indicate_txpower(uint8_t index) {
+    int8_t txp = radio_details[index].txp;
 	serial_write(FEND);
 	serial_write(CMD_TXPOWER);
 	serial_write(txp);
 	serial_write(FEND);
 }
 
-void kiss_indicate_bandwidth(RadioInterface* radio) {
-    uint32_t bw = radio->getSignalBandwidth();
+void kiss_indicate_bandwidth(uint8_t index) {
+    uint32_t bw = radio_details[index].bw * 1000;
 	serial_write(FEND);
 	serial_write(CMD_BANDWIDTH);
 	escaped_serial_write(bw>>24);
@@ -712,8 +710,8 @@ void kiss_indicate_bandwidth(RadioInterface* radio) {
 	serial_write(FEND);
 }
 
-void kiss_indicate_frequency(RadioInterface* radio) {
-    uint32_t freq = radio->getFrequency();
+void kiss_indicate_frequency(uint8_t index) {
+    uint32_t freq = uint32_t(radio_details[index].freq * 1000000);
 	serial_write(FEND);
 	serial_write(CMD_FREQUENCY);
 	escaped_serial_write(freq>>24);
@@ -732,8 +730,8 @@ void kiss_indicate_interface(int index) {
 	serial_write(FEND);
 }
 
-void kiss_indicate_st_alock(RadioInterface* radio) {
-	uint16_t at = (uint16_t)(radio->getSTALock()*100*100);
+void kiss_indicate_st_alock(uint8_t index) {
+	uint16_t at = (uint16_t)(radio_details[index].st_airtime_limit*100*100);
 	serial_write(FEND);
 	serial_write(CMD_ST_ALOCK);
 	escaped_serial_write(at>>8);
@@ -741,8 +739,8 @@ void kiss_indicate_st_alock(RadioInterface* radio) {
 	serial_write(FEND);
 }
 
-void kiss_indicate_lt_alock(RadioInterface* radio) {
-	uint16_t at = (uint16_t)(radio->getLTALock()*100*100);
+void kiss_indicate_lt_alock(uint8_t index) {
+	uint16_t at = (uint16_t)(radio_details[index].lt_airtime_limit*100*100);
 	serial_write(FEND);
 	serial_write(CMD_LT_ALOCK);
 	escaped_serial_write(at>>8);
@@ -750,11 +748,11 @@ void kiss_indicate_lt_alock(RadioInterface* radio) {
 	serial_write(FEND);
 }
 
-void kiss_indicate_channel_stats(RadioInterface* radio) {
-    uint16_t ats = (uint16_t)(radio->getAirtime()*100*100);
-    uint16_t atl = (uint16_t)(radio->getLongtermAirtime()*100*100);
-    uint16_t cls = (uint16_t)(radio->getTotalChannelUtil()*100*100);
-    uint16_t cll = (uint16_t)(radio->getLongtermChannelUtil()*100*100);
+void kiss_indicate_channel_stats(uint8_t index) {
+    uint16_t ats = (uint16_t)(radio_details[index].airtime*100*100);
+    uint16_t atl = (uint16_t)(radio_details[index].longterm_airtime*100*100);
+    uint16_t cls = (uint16_t)(radio_details[index].total_channel_util*100*100);
+    uint16_t cll = (uint16_t)(radio_details[index].longterm_channel_util*100*100);
     serial_write(FEND);
     serial_write(CMD_STAT_CHTM);
     escaped_serial_write(ats>>8);
@@ -768,12 +766,12 @@ void kiss_indicate_channel_stats(RadioInterface* radio) {
     serial_write(FEND);
 }
 
-void kiss_indicate_phy_stats(RadioInterface* radio) {
-    uint16_t lst = (uint16_t)(radio->getSymbolTime()*1000);
-    uint16_t lsr = (uint16_t)(radio->getSymbolRate());
-    uint16_t prs = (uint16_t)(radio->getPreambleLength()+4);
-    uint16_t prt = (uint16_t)((radio->getPreambleLength()+4)*radio->getSymbolTime());
-    uint16_t cst = (uint16_t)(radio->getCSMASlotMS());
+void kiss_indicate_phy_stats(uint8_t index) {
+    uint16_t lst = (uint16_t)(radio_details[index].lora_symbol_time_ms*1000);
+    uint16_t lsr = (uint16_t)(radio_details[index].lora_symbol_rate);
+    uint16_t prs = (uint16_t)(radio_details[index].preamble_length+4);
+    uint16_t prt = (uint16_t)((radio_details[index].preamble_length+4)*radio_details[index].lora_symbol_time_ms);
+    uint16_t cst = (uint16_t)(radio_details[index].csma_slot_ms);
     serial_write(FEND);
     serial_write(CMD_STAT_PHYPRM);
     escaped_serial_write(lst>>8);
@@ -964,6 +962,203 @@ void kiss_indicate_mcu() {
 	serial_write(FEND);
 }
 
+void update_radio_params(PhysicalLayer* radio, struct radio_vars* config) {
+    DataRate_t params;
+    params.lora.spreadingFactor = config->sf;
+    params.lora.codingRate = config->cr;
+    params.lora.bandwidth = config->bw;
+    int16_t status = radio->setDataRate(params);
+    if (status != RADIOLIB_ERR_NONE) {
+            kiss_indicate_error(ERROR_INITRADIO);
+            led_indicate_error(0);
+    }
+}
+
+int16_t set_spreading_factor(PhysicalLayer* radio, uint8_t index, uint8_t sf) {
+    struct radio_vars* config = &radio_details[index];
+    config->sf = sf;
+    update_radio_params(radio, config);
+}
+
+int16_t set_coding_rate(PhysicalLayer* radio, uint8_t index, uint8_t cr) {
+    struct radio_vars* config = &radio_details[index];
+    config->cr = cr;
+    update_radio_params(radio, config);
+}
+
+int16_t set_bandwidth(PhysicalLayer* radio, uint8_t index, float bw) {
+    struct radio_vars* config = &radio_details[index];
+    config->bw = bw;
+    update_radio_params(radio, config);
+}
+
+void update_modem_status(PhysicalLayer* radio, uint8_t index) {
+    struct radio_vars* config = &radio_details[index];
+#if PLATFORM == PLATFORM_ESP32 
+    portENTER_CRITICAL(&update_lock);
+#elif PLATFORM == PLATFORM_NRF52 
+    portENTER_CRITICAL();
+#endif
+
+    // \todo implement again
+    uint8_t status = 0;//modemStatus();
+
+    config->last_status_update = millis();
+
+#if PLATFORM == PLATFORM_ESP32 
+    portEXIT_CRITICAL(&update_lock);
+#elif PLATFORM == PLATFORM_NRF52 
+    portEXIT_CRITICAL();
+#endif
+
+    if ((status & SIG_DETECT) == SIG_DETECT) { config->stat_signal_detected = true; } else { config->stat_signal_detected = false; }
+    if ((status & SIG_SYNCED) == SIG_SYNCED) { config->stat_signal_synced = true; } else { config->stat_signal_synced = false; }
+    if ((status & RX_ONGOING) == RX_ONGOING) { config->stat_rx_ongoing = true; } else { config->stat_rx_ongoing = false; }
+
+    if (config->stat_signal_detected || config->stat_signal_synced) {
+        if (config->stat_rx_ongoing) {
+            if (config->dcd_count < DCD_THRESHOLD) {
+                config->dcd_count++;
+            } else {
+                config->last_dcd = config->last_status_update;
+                config->dcd_led = true;
+                config->dcd = true;
+            }
+        }
+    } else {
+        if (config->dcd_count == 0) {
+            config->dcd_led = false;
+        } else if (config->dcd_count > DCD_LED_STEP_D) {
+            config->dcd_count -= DCD_LED_STEP_D;
+        } else {
+            config->dcd_count = 0;
+        }
+
+        if (config->last_status_update > config->last_dcd+config->csma_slot_ms) {
+            config->dcd = false;
+            config->dcd_led = false;
+            config->dcd_count = 0;
+        }
+    }
+
+
+    if (config->dcd_led) {
+        led_rx_on();
+    } else {
+        if (config->airtime_lock) {
+            led_indicate_airtime_lock();
+        } else {
+            led_rx_off();
+        }
+    }
+};
+
+float csma_slope(float u) { return (pow(_e,_S*u-_S/2.0))/(pow(_e,_S*u-_S/2.0)+1.0); };
+void update_csma_p(struct radio_vars* config) {
+  config->csma_p = (uint8_t)((1.0-(config->csma_p_min+(config->csma_p_max-config->csma_p_min)*csma_slope(config->airtime)))*255.0);
+};
+
+bool calculate_alock(struct radio_vars* config) {
+    bool airtime_lock = false;
+    if (config->st_airtime_limit != 0.0 && config->airtime >= config->st_airtime_limit) {
+        airtime_lock = true;
+        config->airtime_lock = true;
+    }
+    if (config->lt_airtime_limit != 0.0 && config->longterm_airtime >= config->lt_airtime_limit) {
+        airtime_lock = true;
+        config->airtime_lock = true;
+    }
+    return airtime_lock;
+};
+
+void add_airtime(uint8_t index, uint16_t written) {
+    // \todo is referencing it this was actually necessary? Could I not just do it without the pointer?
+    struct radio_vars* config = &radio_details[index];
+    float packet_cost_ms = 0.0;
+    float payload_cost_ms = ((float)written * config->lora_us_per_byte)/1000.0;
+    packet_cost_ms += payload_cost_ms;
+    packet_cost_ms += (config->preamble_length+4.25)*config->lora_symbol_time_ms;
+    packet_cost_ms += PHY_HEADER_LORA_SYMBOLS * config->lora_symbol_time_ms;
+    uint16_t cb = current_airtime_bin();
+    uint16_t nb = cb+1; if (nb == AIRTIME_BINS) { nb = 0; }
+    config->airtime_bins[cb] += packet_cost_ms;
+    config->airtime_bins[nb] = 0;
+};
+
+void update_airtime(uint8_t index) {
+    struct radio_vars* config = &radio_details[index];
+    uint16_t cb = current_airtime_bin();
+    uint16_t pb = cb-1; if (cb-1 < 0) { pb = AIRTIME_BINS-1; }
+    uint16_t nb = cb+1; if (nb == AIRTIME_BINS) { nb = 0; }
+    config->airtime_bins[nb] = 0;
+    config->airtime = (float)(config->airtime_bins[cb]+config->airtime_bins[pb])/(2.0*AIRTIME_BINLEN_MS);
+
+    uint32_t longterm_airtime_sum = 0;
+    for (uint16_t bin = 0; bin < AIRTIME_BINS; bin++) {
+      longterm_airtime_sum += config->airtime_bins[bin];
+    }
+    config->longterm_airtime = (float)longterm_airtime_sum/(float)AIRTIME_LONGTERM_MS;
+
+    float longterm_channel_util_sum = 0.0;
+    for (uint16_t bin = 0; bin < AIRTIME_BINS; bin++) {
+      longterm_channel_util_sum += config->longterm_bins[bin];
+    }
+    config->longterm_channel_util = (float)longterm_channel_util_sum/(float)AIRTIME_BINS;
+
+      update_csma_p(config);
+
+      //kiss_indicate_channel_stats(); // todo: enable me!
+};
+
+void check_modem_status(PhysicalLayer* radio, uint8_t index) {
+    struct radio_vars* config = &radio_details[index];
+    if (millis()-(config->last_status_update) >= STATUS_INTERVAL_MS) {
+        update_modem_status(radio, index);
+
+        config->util_samples[config->dcd_sample] = config->dcd;
+        config->dcd_sample = (config->dcd_sample+1)%DCD_SAMPLES;
+        if (config->dcd_sample % UTIL_UPDATE_INTERVAL == 0) {
+            int util_count = 0;
+            for (int ui = 0; ui < DCD_SAMPLES; ui++) {
+                if (config->util_samples[ui]) util_count++;
+            }
+            config->local_channel_util = (float)util_count / (float)DCD_SAMPLES;
+            config->total_channel_util = config->local_channel_util + config->airtime;
+            if (config->total_channel_util > 1.0) config->total_channel_util = 1.0;
+
+            int16_t cb = current_airtime_bin();
+            uint16_t nb = cb+1; if (nb == AIRTIME_BINS) { nb = 0; }
+            if (config->total_channel_util > config->longterm_bins[cb]) config->longterm_bins[cb] = config->total_channel_util;
+            config->longterm_bins[nb] = 0.0;
+
+            update_airtime(index);
+        }
+    }
+};
+
+void update_bitrate(PhysicalLayer* radio, uint8_t index) {
+    struct radio_vars* config = &radio_details[index];
+    if (config->radio_online) {
+        config->lora_symbol_rate = (config->bw*1000)/(float)(pow(2, config->sf));
+        config->lora_symbol_time_ms = (1.0/config->lora_symbol_rate)*1000.0;
+        config->bitrate = (uint32_t)(config->sf * ( (4.0/(float)(config->cr+4)) / ((float)(pow(2, config->sf))/config->bw) ) * 1000.0);
+        config->lora_us_per_byte = 1000000.0/((float)config->bitrate/8.0);
+        //_csma_slot_ms = _lora_symbol_time_ms*10;
+        float target_preamble_symbols = (LORA_PREAMBLE_TARGET_MS/config->lora_symbol_time_ms)-LORA_PREAMBLE_SYMBOLS_HW;
+        if (target_preamble_symbols < LORA_PREAMBLE_SYMBOLS_MIN) {
+            target_preamble_symbols = LORA_PREAMBLE_SYMBOLS_MIN;
+        } else {
+            target_preamble_symbols = ceil(target_preamble_symbols);
+        }
+        // \todo actually update this on the radio
+        config->preamble_length = target_preamble_symbols;
+        radio->setPreambleLength(target_preamble_symbols);
+    } else {
+        config->bitrate = 0;
+    }
+}
+
+
 inline bool isSplitPacket(uint8_t header) {
 	return (header & FLAG_SPLIT);
 }
@@ -981,66 +1176,69 @@ void set_implicit_length(uint8_t len) {
 	}
 }
 
-void setTXPower(RadioInterface* radio, int txp) {
+void setTXPower(PhysicalLayer* radio, uint8_t index, int txp) {
     // Todo, revamp this function. The current parameters for setTxPower are
     // suboptimal, as some chips have power amplifiers which means that the max
     // dBm is not always the same.
-    if (model == MODEL_11) {
-        if (interfaces[radio->getIndex()] == SX128X) {
-            radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-        } else {
-            radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
-        }
-    }
-    if (model == MODEL_12) {
-        if (interfaces[radio->getIndex()] == SX128X) {
-            radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-        } else {
-            radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
-        }
-    }
+    int8_t set_pwr;
+    radio->checkOutputPower(txp, &set_pwr);
+    radio_details[index].txp = set_pwr;
+    //if (model == MODEL_11) {
+    //    if (interfaces[radio->getIndex()] == SX128X) {
+    //        radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //    } else {
+    //        radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
+    //    }
+    //}
+    //if (model == MODEL_12) {
+    //    if (interfaces[radio->getIndex()] == SX128X) {
+    //        radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //    } else {
+    //        radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
+    //    }
+    //}
 
-    if (model == MODEL_21) {
-        if (interfaces[radio->getIndex()] == SX128X) {
-            radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-        } else {
-            radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
-        }
-    }
+    //if (model == MODEL_21) {
+    //    if (interfaces[radio->getIndex()] == SX128X) {
+    //        radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //    } else {
+    //        radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
+    //    }
+    //}
 
-    if (model == MODEL_A1) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-    if (model == MODEL_A2) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-    if (model == MODEL_A3) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
-    if (model == MODEL_A4) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
-    if (model == MODEL_A5) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
-    if (model == MODEL_A6) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-    if (model == MODEL_A7) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-    if (model == MODEL_A8) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-    if (model == MODEL_A9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_A1) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_A2) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_A3) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
+    //if (model == MODEL_A4) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
+    //if (model == MODEL_A5) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
+    //if (model == MODEL_A6) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_A7) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_A8) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_A9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
 
-    if (model == MODEL_B3) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-    if (model == MODEL_B4) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-    if (model == MODEL_B8) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-    if (model == MODEL_B9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_B3) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_B4) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_B8) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_B9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
 
-    if (model == MODEL_C4) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-    if (model == MODEL_C9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_C4) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_C9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
 
-    if (model == MODEL_E4) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-    if (model == MODEL_E9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-    if (model == MODEL_E3) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-    if (model == MODEL_E8) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_E4) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_E9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_E3) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_E8) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
 
-    if (model == MODEL_FE) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
-    if (model == MODEL_FF) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
+    //if (model == MODEL_FE) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    //if (model == MODEL_FF) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
 }
 
-uint8_t getRandom(RadioInterface* radio) {
-	if (radio->getRadioOnline()) {
-		return radio->random();
-	} else {
+uint8_t getRandom(PhysicalLayer* radio) {
+	//if (radio->getRadioOnline()) {
+	//	return radio->random();
+	//} else {
 		return 0x00;
-	}
+	//}
 }
 
 uint8_t getInterfaceIndex(uint8_t byte) {
@@ -1475,57 +1673,59 @@ bool eeprom_have_conf() {
 	}
 }
 
-void eeprom_conf_load(RadioInterface* radio) {
-	if (eeprom_have_conf()) {
-        if (!(radio->getRadioOnline())) {
-        #if HAS_EEPROM
-            uint8_t sf = EEPROM.read(eeprom_addr(ADDR_CONF_SF));
-            uint8_t cr = EEPROM.read(eeprom_addr(ADDR_CONF_CR));
-            uint8_t txp = EEPROM.read(eeprom_addr(ADDR_CONF_TXP));
-            uint32_t freq = (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x00) << 24 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x01) << 16 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x02) << 8 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x03);
-            uint32_t bw = (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x00) << 24 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x01) << 16 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x02) << 8 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x03);
-        #elif MCU_VARIANT == MCU_NRF52
-            uint8_t sf = eeprom_read(eeprom_addr(ADDR_CONF_SF));
-            uint8_t cr = eeprom_read(eeprom_addr(ADDR_CONF_CR));
-            uint8_t txp = eeprom_read(eeprom_addr(ADDR_CONF_TXP));
-            uint32_t freq = (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x00) << 24 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x01) << 16 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x02) << 8 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x03);
-            uint32_t bw = (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x00) << 24 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x01) << 16 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x02) << 8 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x03);
-        #endif
-            radio->setSpreadingFactor(sf);
-            radio->setCodingRate4(cr);
-            setTXPower(radio, txp);
-            radio->setFrequency(freq);
-            radio->setSignalBandwidth(bw);
-            radio->updateBitrate();
-        }
-	}
+void eeprom_conf_load(PhysicalLayer* radio) {
+    // \todo remove, or will attermann need it?
+	//if (eeprom_have_conf()) {
+    //    if (!(radio->getRadioOnline())) {
+    //    #if HAS_EEPROM
+    //        uint8_t sf = EEPROM.read(eeprom_addr(ADDR_CONF_SF));
+    //        uint8_t cr = EEPROM.read(eeprom_addr(ADDR_CONF_CR));
+    //        uint8_t txp = EEPROM.read(eeprom_addr(ADDR_CONF_TXP));
+    //        uint32_t freq = (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x00) << 24 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x01) << 16 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x02) << 8 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_FREQ)+0x03);
+    //        uint32_t bw = (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x00) << 24 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x01) << 16 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x02) << 8 | (uint32_t)EEPROM.read(eeprom_addr(ADDR_CONF_BW)+0x03);
+    //    #elif MCU_VARIANT == MCU_NRF52
+    //        uint8_t sf = eeprom_read(eeprom_addr(ADDR_CONF_SF));
+    //        uint8_t cr = eeprom_read(eeprom_addr(ADDR_CONF_CR));
+    //        uint8_t txp = eeprom_read(eeprom_addr(ADDR_CONF_TXP));
+    //        uint32_t freq = (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x00) << 24 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x01) << 16 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x02) << 8 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_FREQ)+0x03);
+    //        uint32_t bw = (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x00) << 24 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x01) << 16 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x02) << 8 | (uint32_t)eeprom_read(eeprom_addr(ADDR_CONF_BW)+0x03);
+    //    #endif
+    //        radio->setSpreadingFactor(sf);
+    //        radio->setCodingRate(cr);
+    //        setTXPower(radio, txp);
+    //        radio->setFrequency(freq);
+    //        radio->setBandwidth(bw);
+    //        radio->updateBitrate();
+    //    }
+	//}
 }
 
-void eeprom_conf_save(RadioInterface* radio) {
-	if (hw_ready && radio->getRadioOnline()) {
-		eeprom_update(eeprom_addr(ADDR_CONF_SF), radio->getSpreadingFactor());
-		eeprom_update(eeprom_addr(ADDR_CONF_CR), radio->getCodingRate4());
-		eeprom_update(eeprom_addr(ADDR_CONF_TXP), radio->getTxPower());
+void eeprom_conf_save(PhysicalLayer* radio) {
+    // \todo fixme
+	//if (hw_ready && radio->getRadioOnline()) {
+	//	eeprom_update(eeprom_addr(ADDR_CONF_SF), radio->getSpreadingFactorVal());
+	//	eeprom_update(eeprom_addr(ADDR_CONF_CR), radio->getCodingRateVal());
+	//	eeprom_update(eeprom_addr(ADDR_CONF_TXP), radio->getTXPowerVal());
 
-        uint32_t bw = radio->getSignalBandwidth();
+    //    uint32_t bw = radio->getBandwidthVal() * 1000;
 
-		eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x00, bw>>24);
-		eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x01, bw>>16);
-		eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x02, bw>>8);
-		eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x03, bw);
+	//	eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x00, bw>>24);
+	//	eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x01, bw>>16);
+	//	eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x02, bw>>8);
+	//	eeprom_update(eeprom_addr(ADDR_CONF_BW)+0x03, bw);
 
-        uint32_t freq = radio->getFrequency();
+    //    uint32_t freq = radio->getFrequencyVal() * 1000;
 
-		eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x00, freq>>24);
-		eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x01, freq>>16);
-		eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x02, freq>>8);
-		eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x03, freq);
+	//	eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x00, freq>>24);
+	//	eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x01, freq>>16);
+	//	eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x02, freq>>8);
+	//	eeprom_update(eeprom_addr(ADDR_CONF_FREQ)+0x03, freq);
 
-		eeprom_update(eeprom_addr(ADDR_CONF_OK), CONF_OK_BYTE);
-		led_indicate_info(10);
-	} else {
-		led_indicate_warning(10);
-	}
+	//	eeprom_update(eeprom_addr(ADDR_CONF_OK), CONF_OK_BYTE);
+	//	led_indicate_info(10);
+	//} else {
+	//	led_indicate_warning(10);
+	//}
 }
 
 void eeprom_conf_delete() {
