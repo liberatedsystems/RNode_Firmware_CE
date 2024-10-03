@@ -31,9 +31,11 @@
     #include <InternalFileSystem.h>
     using namespace Adafruit_LittleFS_Namespace;
     #define EEPROM_FILE "eeprom"
+    #define FW_LENGTH_FILE "fw_length"
     bool file_exists = false;
     int written_bytes = 4;
-    File file(InternalFS);
+    File eeprom_file(InternalFS);
+    File fw_length_file(InternalFS);
 #endif
 #include <stddef.h>
 
@@ -1380,21 +1382,21 @@ void promisc_disable() {
     bool eeprom_begin() {
         InternalFS.begin();
 
-        file.open(EEPROM_FILE, FILE_O_READ);
+        eeprom_file.open(EEPROM_FILE, FILE_O_READ);
 
         // if file doesn't exist
-        if (!file) {
-            if (file.open(EEPROM_FILE, FILE_O_WRITE)) {
+        if (!eeprom_file) {
+            if (eeprom_file.open(EEPROM_FILE, FILE_O_WRITE)) {
                 // initialise the file with empty content
                 uint8_t empty_content[EEPROM_SIZE] = {0};
-                file.write(empty_content, EEPROM_SIZE);
+                eeprom_file.write(empty_content, EEPROM_SIZE);
                 return true;
             } else {
                 return false;
             }
         } else {
-            file.close();
-            file.open(EEPROM_FILE, FILE_O_WRITE);
+            eeprom_file.close();
+            eeprom_file.open(EEPROM_FILE, FILE_O_WRITE);
             return true;
         }
     }
@@ -1402,8 +1404,8 @@ void promisc_disable() {
     uint8_t eeprom_read(uint32_t mapped_addr) {
         uint8_t byte;
         void* byte_ptr = &byte;
-        file.seek(mapped_addr);
-        file.read(byte_ptr, 1);
+        eeprom_file.seek(mapped_addr);
+        eeprom_file.read(byte_ptr, 1);
         return byte;
     }
 #endif
@@ -1464,8 +1466,8 @@ void kiss_dump_eeprom() {
 #if !HAS_EEPROM && MCU_VARIANT == MCU_NRF52
 void eeprom_flush() {
     // sync file contents to flash
-    file.close();
-    file.open(EEPROM_FILE, FILE_O_WRITE);
+    eeprom_file.close();
+    eeprom_file.open(EEPROM_FILE, FILE_O_WRITE);
     written_bytes = 0;
 }
 #endif
@@ -1481,11 +1483,11 @@ void eeprom_update(int mapped_addr, uint8_t byte) {
         // each time is really slow, but this is also suboptimal
         uint8_t read_byte;
         void* read_byte_ptr = &read_byte;
-        file.seek(mapped_addr);
-        file.read(read_byte_ptr, 1);
-        file.seek(mapped_addr);
+        eeprom_file.seek(mapped_addr);
+        eeprom_file.read(read_byte_ptr, 1);
+        eeprom_file.seek(mapped_addr);
         if (read_byte != byte) {
-            file.write(byte);
+            eeprom_file.write(byte);
         }
         written_bytes++;
         
@@ -1495,8 +1497,8 @@ void eeprom_update(int mapped_addr, uint8_t byte) {
         }
 
         if (written_bytes >= 4) {
-            file.close();
-            file.open(EEPROM_FILE, FILE_O_WRITE);
+            eeprom_file.close();
+            eeprom_file.open(EEPROM_FILE, FILE_O_WRITE);
             written_bytes = 0;
         }
 	#endif

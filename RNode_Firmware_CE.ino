@@ -1288,6 +1288,21 @@ void serialCallback(uint8_t sbyte) {
         }
 
       #endif
+    } else if (command == CMD_FW_LENGTH) {
+        if (sbyte == FESC) {
+              ESCAPE = true;
+          } else {
+              if (ESCAPE) {
+                  if (sbyte == TFEND) sbyte = FEND;
+                  if (sbyte == TFESC) sbyte = FESC;
+                  ESCAPE = false;
+              }
+              if (frame_len < CMD_L) cmdbuf[frame_len++] = sbyte;
+          }
+
+          if (frame_len == FW_LENGTH_LEN) {
+            set_fw_length(cmdbuf);
+          }
     }
   }
 }

@@ -141,6 +141,38 @@ void device_save_firmware_hash() {
 }
 
 #if MCU_VARIANT == MCU_NRF52
+#define FW_LENGTH_LEN 4
+
+#if MCU_VARIANT == MCU_NRF52
+    void set_fw_length(uint8_t* length_array) {
+        fw_length_file.open(FW_LENGTH_FILE, FILE_O_WRITE);
+
+        fw_length_file.seek(0);
+
+        fw_length_file.write(length_array, FW_LENGTH_LEN);
+
+        fw_length_file.close();
+
+        hard_reset();
+    }
+
+    unsigned long get_fw_length() {
+        fw_length_file.open(FW_LENGTH_FILE, FILE_O_READ);
+
+        // If file doesn't exist yet
+        if (!fw_length_file) {
+            return 0;
+        }
+
+        uint8_t length_array[4];
+
+        fw_length_file.read(length_array, 4);
+
+        unsigned long length = (length_array[0] << 24) | (length_array[1] << 16) | (length_array[2] << 8) | length_array[3];
+        return length;
+    }
+#endif
+
 void calculate_region_hash(unsigned long long start, unsigned long long end, uint8_t* return_hash) {
     // this function calculates the hash digest of a region of memory,
     // currently it is only designed to work for the application region
@@ -158,10 +190,10 @@ void calculate_region_hash(unsigned long long start, unsigned long long end, uin
     int end_count = 0;
     unsigned long length = 0;
 
-    while (start < end - 1 ) {
+    while (start < end) {
         const void* src = (const void*)start;
         if (start + CHUNK_SIZE >= end) {
-            size = (end - 1) - start;
+            size = end - start;
         }
         else {
             size = CHUNK_SIZE;
@@ -169,74 +201,14 @@ void calculate_region_hash(unsigned long long start, unsigned long long end, uin
 
         memcpy(chunk, src, CHUNK_SIZE);
 
-        // check if we've reached the end of the program
-        // if we're checking the application region
         if (application) {
             for (int i = 0; i < CHUNK_SIZE; i++) {
-                if (chunk[i] == 0xFF) {
-                    bool matched = true;
-                    end_count = 1;
-                    // check if rest of chunk is FFs as well, only if FF is not
-                    // at the end of chunk
-                    if (i < CHUNK_SIZE - 1) {
-                        for (int x = 0; x < CHUNK_SIZE - i; x++) {
-                            if (chunk[i+x] != 0xFF) {
-                                matched = false;
-                                break;
-                            }
-                            end_count++;
-                        }
-                    }
-
-                    if (matched) {
-                        while (end_count < END_SECTION_SIZE) {
-                            // check if bytes in next chunk up to total
-                            // required are also FFs
-                            for (int x = 1; x <= ceil(END_SECTION_SIZE / CHUNK_SIZE); x++) {
-                                const void* src_next = (const void*)start + CHUNK_SIZE*x;
-                                if ((END_SECTION_SIZE - end_count) > CHUNK_SIZE) {
-                                    size = CHUNK_SIZE;
-                                } else {
-                                    size = END_SECTION_SIZE - end_count;
-                                }
-                                memcpy(chunk_next, src_next, size);
-                                for (int y = 0; y < size; y++) {
-                                    if (chunk_next[y] != 0xFF) {
-                                        matched = false;
-                                        break;
-                                    }
-                                    end_count++;
-                                }
-
-                                if (!matched) {
-                                    break;
-                                }
-                            }
-                            if (!matched) {
-                                break;
-                            }
-                        }
-
-                        if (matched) {
-                            finish = true;
-                            size = i;
-                            break;
-                        }
-                    }
-                }
+                // do nothing
             }
-        }
-
-        if (finish) {
             hash.update(chunk, size);
             length += size;
-            break;
-        } else {
-            hash.update(chunk, size);
+            start += CHUNK_SIZE;
         }
-
-        start += CHUNK_SIZE;
-        length += CHUNK_SIZE;
     }
     hash.end(return_hash);
 }
@@ -257,7 +229,7 @@ void device_validate_partitions() {
   esp_partition_get_sha256(esp_ota_get_running_partition(), dev_firmware_hash);
   #elif MCU_VARIANT == MCU_NRF52
   // todo, add bootloader, partition table, or softdevice?
-  calculate_region_hash(APPLICATION_START, USER_DATA_START, dev_firmware_hash);
+  calculate_region_hash(APPLICATION_START, APPLICATION_START+get_fw_length(), dev_firmware_hash);
   #endif
     for (uint8_t i = 0; i < DEV_HASH_LEN; i++) {
       if (dev_firmware_hash_target[i] != dev_firmware_hash[i]) {
