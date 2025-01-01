@@ -88,6 +88,19 @@ char sbuf[128];
 
 uint8_t *packet_queue[INTERFACE_COUNT];
 
+void ISR_VECT packet_received() {
+    if (!tx_flag) {
+        for (int i = 0; i < INTERFACE_COUNT; i++) {
+            if (digitalRead(interface_pins[i][5])) {
+                receive_callback(interface_obj[i], i, interface_obj[i]->getPacketLength());
+                break;
+            }
+        }
+    } else {
+        tx_flag = false;
+    }
+}
+
 void setup() {
   #if MCU_VARIANT == MCU_ESP32
     boot_seq();
@@ -205,8 +218,7 @@ void setup() {
               break;
           }
 
-          // \todo CURRENTLY NOT SUPPORTED DUE TO REQUIREMENT FOR DIO1 pin in RadioLib, should be fixed soon...
-          /*case INT_SX1272:
+          case INT_SX1272:
           {
               SX1272* radio;
               if (interface_cfg[i][0]) {
@@ -227,7 +239,7 @@ void setup() {
               config->bw = 125.0;
 
               status = radio->begin(config->freq, config->bw, config->sf,  config->cr, 0x12, config->txp);
-              radio->setDio1Action(packet_received);
+              radio->setDio1Action(packet_received, RISING);
               if (status == RADIOLIB_ERR_NONE) {
                   status = radio->explicitHeader();
               }
@@ -248,8 +260,8 @@ void setup() {
               if (interface_cfg[i][0]) {
                   radio = new SX1276(new Module(interface_pins[i][0], interface_pins[i][5], interface_pins[i][6], RADIOLIB_NC));
               } else {
+                  radio = new SX1276(new Module(interface_pins[i][0], interface_pins[i][5], interface_pins[i][6], RADIOLIB_NC, interface_spi[0]));
                   interface_spi[0].begin();
-              }radio = new SX1276(new Module(interface_pins[i][0], interface_pins[i][5], interface_pins[i][6], RADIOLIB_NC, interface_spi[0]));
               }
 
               interface_obj[i] = (PhysicalLayer*)radio;
@@ -261,9 +273,10 @@ void setup() {
               config->sf = 7;
               config->cr = 7;
               config->bw = 125.0;
+              config->txp = 2; // txpower can only be set to minimum of 2dBm on this model
 
               status = radio->begin(config->freq, config->bw, config->sf,  config->cr, 0x12, config->txp);
-              radio->setDio1Action(packet_received);
+              radio->setDio0Action(packet_received, RISING);
               if (status == RADIOLIB_ERR_NONE) {
                   status = radio->explicitHeader();
               }
@@ -299,7 +312,7 @@ void setup() {
               config->bw = 125.0;
 
               status = radio->begin(config->freq, config->bw, config->sf,  config->cr, 0x12, config->txp);
-              radio->setDio1Action(packet_received);
+              radio->setDio1Action(packet_received, RISING);
               if (status == RADIOLIB_ERR_NONE) {
                   status = radio->explicitHeader();
               }
@@ -314,7 +327,6 @@ void setup() {
               }
               break;
           }
-          */
 
           case INT_SX1280:
           {
@@ -454,19 +466,6 @@ void setup() {
   validate_status();
 }
 
-void ISR_VECT packet_received() {
-    if (!tx_flag) {
-        for (int i = 0; i < INTERFACE_COUNT; i++) {
-            if (digitalRead(interface_pins[i][5])) {
-                receive_callback(interface_obj[i], i, interface_obj[i]->getPacketLength());
-                break;
-            }
-        }
-    } else {
-        tx_flag = false;
-    }
-}
-
 inline void kiss_write_packet(int index) {
   // We need to convert the interface index to the command byte representation
   uint8_t cmd_byte = getInterfaceCommandByte(index);
@@ -593,9 +592,16 @@ bool startRadio(PhysicalLayer* radio, uint8_t index) {
               update_radio_params(radio, config);
               radio->setFrequency(config->freq);
               break;
+          case INT_SX1272:
           case INT_SX1276:
           case INT_SX1278:
-              // \todo
+              // wake up module
+              digitalWrite(interface_pins[index][0], LOW);
+              delay(10);
+              digitalWrite(interface_pins[index][0], HIGH);
+              status = radio->standby();
+              update_radio_params(radio, config);
+              radio->setFrequency(config->freq);
               break;
           case INT_SX1280:
               // wake up module
@@ -1288,21 +1294,6 @@ void serialCallback(uint8_t sbyte) {
         }
 
       #endif
-    } else if (command == CMD_FW_LENGTH) {
-        if (sbyte == FESC) {
-              ESCAPE = true;
-          } else {
-              if (ESCAPE) {
-                  if (sbyte == TFEND) sbyte = FEND;
-                  if (sbyte == TFESC) sbyte = FESC;
-                  ESCAPE = false;
-              }
-              if (frame_len < CMD_L) cmdbuf[frame_len++] = sbyte;
-          }
-
-          if (frame_len == FW_LENGTH_LEN) {
-            set_fw_length(cmdbuf);
-          }
     }
   }
 }

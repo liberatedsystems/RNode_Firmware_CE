@@ -290,7 +290,7 @@
       };
 
     #elif BOARD_MODEL == BOARD_LORA32_V2_1
-      #define HAS_DISPLAY true
+      #define HAS_DISPLAY false
       #define DISPLAY OLED
       #define HAS_BLUETOOTH true
       #define HAS_BLE true
@@ -299,7 +299,7 @@
       #define HAS_EEPROM true
       #define INTERFACE_COUNT 1
 
-      const uint8_t interfaces[INTERFACE_COUNT] = {SX127X};
+      const uint8_t interfaces[INTERFACE_COUNT] = {INT_SX1276};
       #if HAS_TCXO == true
         const bool interface_cfg[INTERFACE_COUNT][3] = { 
                         // SX127X
