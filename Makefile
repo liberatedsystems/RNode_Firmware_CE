@@ -29,6 +29,7 @@ prep-esp32:
 	arduino-cli lib install "Adafruit SSD1306"
 	arduino-cli lib install "XPowersLib"
 	arduino-cli lib install "Crypto"
+	arduino-cli lib install "RadioLib"
 	pip install pyserial rns --upgrade --user --break-system-packages # This looks scary, but it's actually just telling pip to install packages as a user instead of trying to install them systemwide, which bypasses the "externally managed environment" error.
 
 prep-samd:
@@ -42,6 +43,7 @@ prep-nrf:
 	arduino-cli lib install "Crypto"
 	arduino-cli lib install "Adafruit GFX Library"
 	arduino-cli lib install "GxEPD2"
+	arduino-cli lib install "RadioLib"
 	pip install pyserial rns --upgrade --user --break-system-packages
 	pip install adafruit-nrfutil --upgrade --user --break-system-packages # This looks scary, but it's actually just telling pip to install packages as a user instead of trying to install them systemwide, which bypasses the "externally managed environment" error.
 
