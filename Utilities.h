@@ -971,8 +971,8 @@ void update_radio_params(PhysicalLayer* radio, struct radio_vars* config) {
     params.lora.bandwidth = config->bw;
     int16_t status = radio->setDataRate(params);
     if (status != RADIOLIB_ERR_NONE) {
-            kiss_indicate_error(ERROR_INITRADIO);
-            led_indicate_error(0);
+        kiss_indicate_error(ERROR_INITRADIO);
+        led_indicate_error(0);
     }
 }
 

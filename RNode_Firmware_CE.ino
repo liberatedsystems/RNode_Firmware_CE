@@ -578,8 +578,7 @@ bool startRadio(PhysicalLayer* radio, uint8_t index) {
     struct radio_vars* config = &radio_details[index];
   //update_radio_lock(radio);
   
-  //if (modems_installed && !console_active) {
-    //if (!radio->getRadioLock() && hw_ready) {
+  if (!config->radio_online) {
 
       int16_t status = 0;
       switch (interfaces[index]) {
@@ -656,12 +655,13 @@ bool startRadio(PhysicalLayer* radio, uint8_t index) {
     //  led_indicate_warning(3);
     //  return false;
     //}
-  //} else {
-  //  // If radio is already on, we silently
-  //  // ignore the request.
-  //  kiss_indicate_radiostate(radio);
-  //  return true;
-  //}
+  } else {
+    // If the radio is already initialised then update the parameters and bitrate.
+    update_radio_params(radio, &radio_details[index]);
+    update_bitrate(radio, index);
+    kiss_indicate_radiostate(index);
+    return true;
+  }
 }
 
 void stopRadio(PhysicalLayer* radio, uint8_t index) {
@@ -918,13 +918,11 @@ void serialCallback(uint8_t sbyte) {
             if (radio_details[interface].radio_online) {
                 if (op_mode == MODE_HOST) status = selected_radio->setFrequency(freq_f);
             }
-            if (status == RADIOLIB_ERR_NONE) {
-                radio_details[interface].freq = freq_f;
-            }
+            radio_details[interface].freq = freq_f;
             kiss_indicate_frequency(interface);
           }
-          interface = 0;
         }
+        interface = 0;
     } else if (command == CMD_BANDWIDTH) {
       if (sbyte == FESC) {
             ESCAPE = true;
@@ -946,18 +944,13 @@ void serialCallback(uint8_t sbyte) {
             kiss_indicate_bandwidth(interface);
           } else {
             float bw_f = bw / 1000.0;
-            if (radio_details[interface].radio_online) {
-                if (op_mode == MODE_HOST) set_bandwidth(selected_radio, interface, bw_f);
-                update_bitrate(selected_radio, interface);
-                kiss_indicate_phy_stats(interface);
-            } else {
-                radio_details[interface].bw = bw_f;
-            }
+
+            radio_details[interface].bw = bw_f;
             sort_interfaces();
             kiss_indicate_bandwidth(interface);
           }
-          interface = 0;
         }
+        interface = 0;
     } else if (command == CMD_TXPOWER) {
       selected_radio = interface_obj[interface];
 
@@ -966,11 +959,8 @@ void serialCallback(uint8_t sbyte) {
       } else {
         int8_t txp = (int8_t)sbyte;
 
-        if (radio_details[interface].radio_online) {
-            if (op_mode == MODE_HOST) setTXPower(selected_radio, interface, txp);
-        } else {
-            radio_details[interface].txp = txp;
-        }
+        if (op_mode == MODE_HOST) setTXPower(selected_radio, interface, txp);
+        //radio_details[interface].txp = txp; todo fix this path
         kiss_indicate_txpower(interface);
       }
       interface = 0;
@@ -984,13 +974,7 @@ void serialCallback(uint8_t sbyte) {
         if (sf < 5) sf = 5;
         if (sf > 12) sf = 12;
 
-        if (radio_details[interface].radio_online) {
-            if (op_mode == MODE_HOST) set_spreading_factor(selected_radio, interface, sf);
-            update_bitrate(selected_radio, interface);
-            kiss_indicate_phy_stats(interface);
-        } else {
-            radio_details[interface].sf = sf;
-        }
+        radio_details[interface].sf = sf;
         sort_interfaces();
         kiss_indicate_spreadingfactor(interface);
       }
@@ -1004,13 +988,7 @@ void serialCallback(uint8_t sbyte) {
         if (cr < 5) cr = 5;
         if (cr > 8) cr = 8;
 
-        if (radio_details[interface].radio_online) {
-            if (op_mode == MODE_HOST) set_coding_rate(selected_radio, interface, cr);
-            update_bitrate(selected_radio, interface);
-            kiss_indicate_phy_stats(interface);
-        } else {
-            radio_details[interface].cr = cr;
-        }
+        radio_details[interface].cr = cr;
         sort_interfaces();
         kiss_indicate_codingrate(interface);
       }
@@ -1051,16 +1029,16 @@ void serialCallback(uint8_t sbyte) {
         }
 
         if (frame_len == 2) {
-          uint16_t at = (uint16_t)cmdbuf[0] << 8 | (uint16_t)cmdbuf[1];
+            uint16_t at = (uint16_t)cmdbuf[0] << 8 | (uint16_t)cmdbuf[1];
 
-          if (at == 0) {
-            radio_details[interface].st_airtime_limit = 0.0;
-          } else {
-            int st_airtime_limit = (float)at/(100.0*100.0);
-            if (st_airtime_limit >= 1.0) { st_airtime_limit = 0.0; }
-            radio_details[interface].st_airtime_limit = st_airtime_limit;
-          }
-          kiss_indicate_st_alock(interface);
+            if (at == 0) {
+                radio_details[interface].st_airtime_limit = 0.0;
+            } else {
+                int st_airtime_limit = (float)at/(100.0*100.0);
+                if (st_airtime_limit >= 1.0) { st_airtime_limit = 0.0; }
+                radio_details[interface].st_airtime_limit = st_airtime_limit;
+            }
+            kiss_indicate_st_alock(interface);
         }
         interface = 0;
     } else if (command == CMD_LT_ALOCK) {

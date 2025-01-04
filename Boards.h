@@ -711,7 +711,7 @@
       #define INTERFACE_COUNT 1
 
       // first interface in list is the primary
-      const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
+      const uint8_t interfaces[INTERFACE_COUNT] = {INT_SX1262};
       const bool interface_cfg[INTERFACE_COUNT][3] = { 
                     // SX1262
           {
