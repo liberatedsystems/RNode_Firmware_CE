@@ -35,18 +35,18 @@ You must have at least version `2.1.3` of `rnodeconf` installed to update your R
 | openCom XL | [Liberated Embedded Systems](https://liberatedsystems.co.uk) | [Buy here](https://store.liberatedsystems.co.uk/product/opencom-xl/) | SX1262 & SX1280 | nRF52 | Supports utilisation of both modems at once |
 
 ### Homebrew devices
-| Board name | Link | Transceiver | MCU | Description | 
+| Board name | Link | Transceiver | MCU | Description |
 | :--- | :---: | :---: | :---: | :---: |
 | RAK4631 | [Buy here](https://store.rakwireless.com/products/rak4631-lpwan-node?m=5&h=wisblock-core) | SX1262 | nRF52 |
 | LilyGO T-BEAM v1.1 | [Buy here](https://www.lilygo.cc/products/t-beam-v1-1-esp32-lora-module) | SX1276/8 or SX1262 | ESP32 |
-| LilyGO T-Beam Supreme | [Buy here](https://lilygo.cc/products/t-beam-supreme) | SX1262 | ESP32-S3 | 
+| LilyGO T-Beam Supreme | [Buy here](https://lilygo.cc/products/t-beam-supreme) | SX1262 | ESP32-S3 |
 | LilyGO LoRa32 v1.0 | [Buy here](https://www.lilygo.cc/products/lora32-v1-0) | SX1276/8 | ESP32 |
 | LilyGO LoRa32 v2.0 | No link | SX1276/8 | ESP32 | Discontinued? |
 | LilyGO LoRa32 v2.1 |  [Buy here](https://www.lilygo.cc/products/lora3) | SX1276/8 | ESP32 | With and without TCXO |
 | Heltec LoRa32 v2 | No link | SX1276/8 | ESP32 | Discontinued? |
-| Heltec LoRa32 v3 | [Buy here](https://heltec.org/project/wifi-lora-32-v3/) | SX1262 | ESP32 | 
+| Heltec LoRa32 v3 | [Buy here](https://heltec.org/project/wifi-lora-32-v3/) | SX1262 | ESP32 |
 | LilyGo T3S3 v1.0 | [Buy here](https://lilygo.cc/products/t3s3-v1-0) | SX1262 or SX1276 or SX1280 | ESP32-S3 |
-| Heltec T114 | [Buy here](https://heltec.org/project/mesh-node-t114/) | SX1262 | nRF52 | 
+| Heltec T114 v2.0 | [Buy here](https://heltec.org/project/mesh-node-t114/) | SX1262 | nRF52 |
 | Homebrew ESP32 boards | | Any supported | ESP32 | This can be any board with an Adafruit Feather (or generic) ESP32 chip |
 
 It's easy to create your own RNodes from one of the supported development boards and devices. If a device or board you want to use is not yet supported, you are welcome to [join the effort](Documentation/CONTRIBUTING.md) and help create a board definition and pin mapping for it!
@@ -158,7 +158,7 @@ Please see [here](Documentation/FAQ.md).
 
 ## License & Use
 The upstream RNode Firmware is Copyright © 2024 Mark Qvist / [unsigned.io](https://unsigned.io).
-The modified RNode Firmware CE (community edition) is Copyright © Jacob Eva / [Liberated Embedded Systems](https://liberatedsystems.co.uk) and is made available under the **GNU General Public License v3.0**. 
+The modified RNode Firmware CE (community edition) is Copyright © Jacob Eva / [Liberated Embedded Systems](https://liberatedsystems.co.uk) and is made available under the **GNU General Public License v3.0**.
 
 The source code includes an SX1276 driver that is released under MIT License, and Copyright © 2018 Sandeep Mistry / Mark Qvist. The SX126x and SX128x drivers are adaptations of this original driver.
 
