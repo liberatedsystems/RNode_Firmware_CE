@@ -12,12 +12,13 @@ This entry in `Boards.h` should include, at a minimum, the following:
 * whether the modem has a busy pin
 * RX and TX leds (preferably LEDs of different colours)
 
-You should also define a unique name for your board (with a unique value), for
-example:
+You should also define a unique name for your board (with a unique value) near the beginning of the file, along with a product and model value. For example:
 ```
 #define BOARD_MY_WICKED_BOARD 0x3B
+#define PRODUCT_MY_WICKED_BOARD 0x98
+#define MODEL_99 0x99
 ```
-**Check your chosen value is not in use** in `Boards.h` first!
+**Check your chosen values are not in use** in `Boards.h` first! Please also ensure you have one model per variation of the board, such as 868mhz and 915mhz variants for example.
 The board definition should look as follows:
 ```
 #elif BOARD_MODEL == BOARD_MY_WICKED_BOARD
@@ -84,7 +85,7 @@ An example of an entry using the SX1262 modem can be seen below:
   const int pin_led_rx = 5;
   const int pin_led_tx = 6;
   #define INTERFACE_COUNT 1
-  const uint8_t interfaces[INTERFACE_COUNT] = {SX126X};
+  const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
   const bool interface_cfg[INTERFACE_COUNT][3] = { 
                 // SX1262
       {
@@ -125,7 +126,7 @@ An example of an entry using the SX1280 modem can be seen below:
   const int pin_led_rx = 5;
   const int pin_led_tx = 6;
   #define INTERFACE_COUNT 1
-  const uint8_t interfaces[INTERFACE_COUNT] = {SX128X};
+  const uint8_t interfaces[INTERFACE_COUNT] = {SX1280};
   const bool interface_cfg[INTERFACE_COUNT][3] = { 
                 // SX1280
       {
@@ -181,6 +182,21 @@ your MCU variant. Please search for the other definitions of `led_rx_on()` to
 find the correct section, then find the final section by searching for the
 comparison where `MCU_VARIANT` is checked for your MCU variant.
 
+You also need to add entries to the `setTxPower()`, `eeprom_product_valid()` and `eeprom_model_valid()` functions in the same file.
+
+In `setTxPower()`, you simply need to add an if statement for your model, e.g:
+`if (model == MODEL_99) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);`
+
+There is no difference between `PA_OUTPUT_PA_BOOST_PIN` and `PA_OUTPUT_RFO_PIN` on boards which do not have an SX1276/8.
+
+For `eeprom_product_valid()` you simply need to add your product value to the relevant if statment depending on what MCU variant your board uses. For example:
+`if (rval == PRODUCT_RAK4631 || rval == PRODUCT_HELTEC_T114 || rval == PRODUCT_OPENCOM_XL || rval == PRODUCT_TECHO || rval == PRODUCT_MY_WICKED_BOARD || rval == PRODUCT_HMBRW) {`
+
+Finally, for `eeprom_model_valid`, you must add an elif with the correct model number for the board, e.g:
+```#elif BOARD_MODEL == BOARD_MY_WICKED_BOARD
+    if (model == MODEL_99) {
+```
+
 ### Makefile
 You can add the example target below to the makefile for your board, but **you must replace the FQBN** in the arduino-cli command with the correct one for your board.
 ```
@@ -225,10 +241,6 @@ release-wicked_nrf52:
 	arduino-cli compile --fqbn rakwireless:nrf52:WisCoreRAK4631Board -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3B\""
 	cp build/rakwireless.nrf52.WisCoreRAK4631Board/RNode_Firmware_CE.ino.hex build/rnode_firmware_wicked_nrf52.hex
 	adafruit-nrfutil dfu genpkg --dev-type 0x0052 --application build/rnode_firmware_wicked_nrf52.hex Release/rnode_firmware_wicked_nrf52.zip
-```
-Don't forget to add this entry to the `release-all` target!
-```
-release-all: console-site spiffs-image release-tbeam release-tbeam_sx1262 release-lora32_v10 release-lora32_v20 release-lora32_v21 release-lora32_v10_extled release-lora32_v20_extled release-lora32_v21_extled release-lora32_v21_tcxo release-featheresp32 release-genericesp32 ***release-wicked_esp32*** release-heltec32_v2 release-heltec32_v3 release-heltec32_v2_extled release-rnode_ng_20 release-rnode_ng_21 release-t3s3 release-hashes
 ```
 You can of course replace the ESP32 target with the nRF52 target, if you are building for that MCU variant, as seen in previous instructions.
 
