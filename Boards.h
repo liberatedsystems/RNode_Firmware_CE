@@ -239,15 +239,15 @@
 
       #if BOARD_VARIANT == MODEL_E4 || BOARD_VARIANT == MODEL_E9
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1276};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX127X
           {
               true, // DEFAULT_SPI
               false, // HAS_TCXO
               false  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX127X
           {
               18, // pin_ss
@@ -264,17 +264,17 @@
       };
 
       #elif BOARD_VARIANT == MODEL_E3 || BOARD_VARIANT == MODEL_E8
-      #define OCP_TUNED 0x38
+      #define OCP_TUNED 0x18
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1262
           {
               true, // DEFAULT_SPI
               true, // HAS_TCXO
               true  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1262
           {
               18, // pin_ss
@@ -545,7 +545,7 @@
       #define PIN_WAKEUP GPIO_NUM_0
       #define WAKEUP_LEVEL 0
       #define INTERFACE_COUNT 1
-      #define OCP_TUNED 0x38
+      #define OCP_TUNED 0x18
 
       const int pin_btn_usr1 = 0;
 
@@ -986,7 +986,7 @@
 
     #elif BOARD_MODEL == BOARD_TBEAM_S_V1
       #define IS_ESP32S3 true
-      #define OCP_TUNED 0x38
+      #define OCP_TUNED 0x18
 
       #define HAS_DISPLAY true
       #define DISPLAY MONO_OLED
@@ -1475,7 +1475,7 @@
   // Default OCP value if not specified
   // in board configuration
   #ifndef OCP_TUNED
-    #define OCP_TUNED 0x38
+    #define OCP_TUNED 0x18
   #endif
 
   #ifndef NP_M
