@@ -14,17 +14,16 @@ The RNode system is primarily software, which *transforms* different kinds of av
 
 ## Latest Release
 
-The latest release, installable through `rnodeconf`, is version `1.73`. This release brings the following changes:
+The latest release, installable through `rnodeconf`, is version `1.75`. This release brings the following changes:
 
-- Added multiple interface support - for supported boards you may now use more than one radio modem at once! Currently the only supported board is the RAK4631 with the right hardware.
-- Fixes for various issues with the SX1280 - data rates are now at expected speeds overall.
-- Added PA calculations for the LoRa1280F27 - this allows for the TX power to be set accurately for this modem.
-- Fixes for OLED compilation errors as a result of commit 055083f.
-- Added switching graphics to the display - shows statistics from up to 2 modems simultaneously.
-- Fix TNC EEPROM settings not being saved - courtesy of @attermann
-- Fix ESP32 linker errors - BSP version is now fixed at 2.0.17, using the older crosstool-ng linker from previous versions (2021r1)
+- Set correct flash size for Xiao esp32s3 by @easytarget in #72
+- Add NeoPixel support for LILYGO LoRa32 by @0x62 in #71
+- Fixed a bug causing infinite reception detection, making the RNode unusable
+- Updated WisBlock SX1280 module PA curve
+- Fixed builds for the LilyGO T-Echo
+- Incorporated changes from upstream v1.82
 
-You must have at least version `2.1.3` of `rnodeconf` installed to update your RNode Firmware install to version `1.73`. Get it by updating the `rns` package to at least version `0.6.4`.
+You must have at least version `2.1.3` of `rnodeconf` installed to update your RNode Firmware install to version `1.75`. **YOU MUST USE AN RNS VERSION HIGHER THAN `0.9.3` IF YOU ARE USING A MULTI-INTERFACE RNODE!**
 
 ## Supported products and boards
 
@@ -46,6 +45,7 @@ You must have at least version `2.1.3` of `rnodeconf` installed to update your R
 | Heltec LoRa32 v2 | No link | SX1276/8 | ESP32 | Discontinued? |
 | Heltec LoRa32 v3 | [Buy here](https://heltec.org/project/wifi-lora-32-v3/) | SX1262 | ESP32 | 
 | LilyGo T3S3 v1.0 | [Buy here](https://lilygo.cc/products/t3s3-v1-0) | SX1262 or SX1276 or SX1280 | ESP32-S3 |
+| LilyGo T-Echo | [Buy here](https://lilygo.cc/products/t-echo-lilygo) | SX1262 | nRF52 |
 | Heltec T114 | [Buy here](https://heltec.org/project/mesh-node-t114/) | SX1262 | nRF52 | 
 | Homebrew ESP32 boards | | Any supported | ESP32 | This can be any board with an Adafruit Feather (or generic) ESP32 chip |
 
@@ -102,7 +102,6 @@ The production of one particular RNode device is not an end, but the potential s
 
 This tree fits into the larger biome of Free & Open Communications Systems, which I hope that you - by using communications tools like RNode - will help grow and prosper.
 
-
 ## Getting Started Fast
 You can download and flash the firmware to all the supported boards using [rnodeconf](https://github.com/markqvist/Reticulum). All firmware releases are handled and installed directly through the `rnodeconf` utility, which is included in the `rns` package. It can be installed via `pip`:
 
@@ -143,13 +142,13 @@ You can help support the continued development of open, free and private communi
   ```
   84FpY1QbxHcgdseePYNmhTHcrgMX4nFfBYtz2GKYToqHVVhJp8Eaw1Z1EedRnKD19b3B8NiLCGVxzKV17UMmmeEsCrPyA5w
   ```
-- Ethereum
-  ```
-  0xFDabC71AC4c0C78C95aDDDe3B4FA19d6273c5E73
-  ```
 - Bitcoin
   ```
-  35G9uWVzrpJJibzUwpNUQGQNFzLirhrYAH
+  bc1p4a6axuvl7n9hpapfj8sv5reqj8kz6uxa67d5en70vzrttj0fmcusgxsfk5
+  ```
+- Ethereum
+  ```
+  0xae89F3B94fC4AD6563F0864a55F9a697a90261ff
   ```
 - Ko-Fi: https://ko-fi.com/markqvist
 

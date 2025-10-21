@@ -711,6 +711,8 @@ void sx126x::enableTCXO() {
       uint8_t buf[4] = {MODE_TCXO_1_8V_6X, 0x00, 0x00, 0xFF};
     #elif BOARD_MODEL == BOARD_HELTEC_T114
       uint8_t buf[4] = {MODE_TCXO_1_8V_6X, 0x00, 0x00, 0xFF};
+    #elif BOARD_MODEL == BOARD_E22_ESP32
+      uint8_t buf[4] = {MODE_TCXO_1_8V_6X, 0x00, 0x00, 0xFF};
     #else
       uint8_t buf[4] = {0};
     #endif
@@ -2145,102 +2147,100 @@ void sx128x::disableTCXO() {
 
 void sx128x::setTxPower(int level, int outputPin) {
     uint8_t tx_buf[2];
-    #if BOARD_VARIANT == MODEL_13 || BOARD_VARIANT == MODEL_21
-    // RAK4631 with WisBlock SX1280 module (LIBSYS002)
-    if (level > 27) { level = 27; }
-    else if (level < 0) { level = 0; }
+    #if BOARD_VARIANT == MODEL_13 || BOARD_VARIANT == MODEL_14 || BOARD_VARIANT == MODEL_21
+    // RAK4631 with WisBlock SX1280 module (LIBSYS002 rev 1.3)
+    // Power range on this model is roughly -6 dBm to 20 dBm
+    if (level > 20) { level = 20; } 
+    else if (level < -6) { level = -6; }
 
     _txp = level;
 
     int reg_value;
 
     switch (level) {
+        case -6:
+            reg_value = -18; // -6.3 dBm
+            break;
+        case -5:
+            reg_value = -17; // -5.4 dBm
+            break;
+        case -4:
+            reg_value = -16; // -3.9 dBm
+            break;
+        case -3:
+            reg_value = -15; // -2.9 dBm
+            break;
+        case -2:
+            reg_value = -14; // -2 dBm
+            break;
+        case -1:
+            reg_value = -13; // CANNOT SET, BUG??
+            break;
         case 0:
-            reg_value = -18;
+            reg_value = -12; // -0.4 dBm
             break;
         case 1:
-            reg_value = -16;
+            reg_value = -10; // 1.1 dBm
             break;
         case 2:
-            reg_value = -15;
+            reg_value = -9; // 2.4 dBm
             break;
         case 3:
-            reg_value = -14;
+            reg_value = -8; // 3 dBm
             break;
         case 4:
-            reg_value = -13;
+            reg_value = -7; // 4.1 dBm
             break;
         case 5:
-            reg_value = -12;
+            reg_value = -6; // 5.1 dBm
             break;
         case 6:
-            reg_value = -11;
+            reg_value = -5; // 6 dBm
             break;
         case 7:
-            reg_value = -9;
+            reg_value = -4; // 7.3 dBm
             break;
         case 8:
-            reg_value = -8;
+            reg_value = -3; // 8.3 dBm
             break;
         case 9:
-            reg_value = -7;
+            reg_value = -2; // 9.2 dBm
             break;
         case 10:
-            reg_value = -6;
+            reg_value = -1; // 10.3 dBm
             break;
         case 11:
-            reg_value = -5;
+            reg_value = 0; // 11.4 dBm
             break;
         case 12:
-            reg_value = -4;
+            reg_value = 1; // 12.4 dBm
             break;
         case 13:
-            reg_value = -3;
+            reg_value = 2; // 13.5 dBm
             break;
         case 14:
-            reg_value = -2;
+            reg_value = 2; // 13.5 dBm
             break;
         case 15:
-            reg_value = -1;
+            reg_value = 3; // 14.3 dBm
             break;
         case 16:
-            reg_value = 0;
+            reg_value = 5; // 16.4 dBm
             break;
         case 17:
-            reg_value = 1;
+            reg_value = 6; // 17.1 dBm
             break;
         case 18:
-            reg_value = 2;
+            reg_value = 8; // 18.5 dBm
             break;
         case 19:
-            reg_value = 3;
+            reg_value = 10; // 19.2 dBm
             break;
         case 20:
-            reg_value = 4;
-            break;
-        case 21:
-            reg_value = 5;
-            break;
-        case 22:
-            reg_value = 6;
-            break;
-        case 23:
-            reg_value = 7;
-            break;
-        case 24:
-            reg_value = 8;
-            break;
-        case 25:
-            reg_value = 9;
-            break;
-        case 26:
-            reg_value = 12;
-            break;
-        case 27:
-            reg_value = 13;
+            reg_value = 13; // 20.1 dBm
             break;
         default:
-            reg_value = 0;
+            reg_value = -18;
             break;
     }
 

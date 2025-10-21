@@ -64,11 +64,12 @@
   #define MODEL_DB            0xDB // LilyGO T-Beam Supreme, 433 MHz
   #define MODEL_DC            0xDC // LilyGO T-Beam Supreme, 868 MHz
 
-  #define PRODUCT_XIAO_ESP32S3  0xEB // Xiao ESP32S3 - sold by Seeed Studio
-  #define BOARD_XIAO_ESP32S3    0x3E
-  #define MODEL_DD            0xDD // Xiao ESP32S3, 868 MHz
+  #define PRODUCT_XIAO_S3     0xEB
+  #define BOARD_XIAO_S3       0x3E
+  #define MODEL_DE            0xDE // Xiao ESP32S3 with Wio-SX1262 module, 433 MHz
+  #define MODEL_DD            0xDD // Xiao ESP32S3 with Wio-SX1262 module, 868 MHz
 
-  #define PRODUCT_T32_10      0xB2 // T3 v1.0 - sold by LilyGO
+  #define PRODUCT_T32_10      0xB2
   #define BOARD_LORA32_V1_0   0x39
   #define MODEL_BA            0xBA // LilyGO T3 v1.0, 433 MHz
   #define MODEL_BB            0xBB // LilyGO T3 v1.0, 868 MHz
@@ -106,12 +107,12 @@
   #define BOARD_RAK4631       0x51
   #define MODEL_11            0x11 // RAK4631, 433 MHz
   #define MODEL_12            0x12 // RAK4631, 868 MHz
-  #define MODEL_13            0x13 // RAK4631, 433MHz with WisBlock SX1280 module (LIBSYS002)
-  #define MODEL_14            0x14 // RAK4631, 868/915 MHz with WisBlock SX1280 module (LIBSYS002)
+  #define MODEL_13            0x13 // RAK4631, 433MHz with WisBlock SX1280 module (LIBSYS002 rev 1.3)
+  #define MODEL_14            0x14 // RAK4631, 868/915 MHz with WisBlock SX1280 module (LIBSYS002 rev 1.3)
 
   #define PRODUCT_OPENCOM_XL  0x20 // openCom XL - sold by Liberated Embedded Systems
   #define BOARD_OPENCOM_XL    0x52
-  #define MODEL_21            0x21 // openCom XL, 868/915 MHz
+  #define MODEL_21            0x21 // openCom XL v1, 868/915 MHz
 
   #define BOARD_E22_ESP32     0x45 // Custom Ebyte E22 board design for meshtastic, source:
                                    // https://github.com/NanoVHF/Meshtastic-DIY/blob/main/Schematics/E-Byte_E22/Mesh_Ebyte_E22-XXXM30S.pdf
@@ -1060,7 +1061,7 @@
       const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1262
           {
-              true, // DEFAULT_SPI
+              false, // DEFAULT_SPI
               true, // HAS_TCXO
               true  // DIO2_AS_RF_SWITCH
           },
@@ -1080,7 +1081,7 @@
               -1  // pin_tcxo_enable
           }
       };
- #elif BOARD_MODEL == BOARD_XIAO_ESP32S3
+ #elif BOARD_MODEL == BOARD_XIAO_S3
       #define IS_ESP32S3 true
 
       #define HAS_DISPLAY true
@@ -1146,10 +1147,10 @@
       // shared with button input.
       #if HAS_NP == false
         #if defined(EXTERNAL_LEDS)
-          const int pin_led_rx = -1;
+          const int pin_led_rx = 48;
           const int pin_led_tx = 48; //47;
         #else
-          const int pin_led_rx = -1;
+          const int pin_led_rx = 48;
           const int pin_led_tx = 48; //47;
         #endif
       #endif

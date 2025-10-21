@@ -129,6 +129,12 @@ void busyCallback(const void* p) { display_callback(); }
   #define DISP_W 250
   #define DISP_H 122
   #define DISP_ADDR -1
+#elif BOARD_MODEL == BOARD_XIAO_S3
+  #define DISP_RST -1
+  #define DISP_ADDR 0x3C
+  #define SCL_OLED 6
+  #define SDA_OLED 5
+  #define DISP_CUSTOM_ADDR true
 #else
   #define DISP_RST -1
   #define DISP_ADDR 0x3C
@@ -370,6 +376,8 @@ bool display_init() {
         analogWrite(pin_backlight, 0);
       #endif
     #elif BOARD_MODEL == BOARD_TBEAM_S_V1
+      Wire.begin(SDA_OLED, SCL_OLED);
+    #elif BOARD_MODEL == BOARD_XIAO_S3
       Wire.begin(SDA_OLED, SCL_OLED);
     #endif
 
@@ -721,7 +729,7 @@ void draw_quality_bars(int px, int py) {
   //}
 }
 
-#if MODE == SX1280
+#if MODEM == SX1280
   #define S_RSSI_MIN -105.0
   #define S_RSSI_MAX -65.0
 #else

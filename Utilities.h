@@ -23,6 +23,7 @@
 #if HAS_EEPROM
     #include <EEPROM.h>
 #elif PLATFORM == PLATFORM_NRF52
+		#include <hal/nrf_rng.h>
     #include <Adafruit_LittleFS.h>
     #include <InternalFileSystem.h>
     using namespace Adafruit_LittleFS_Namespace;
@@ -88,6 +89,28 @@ uint8_t boot_vector = 0x00;
 	// TODO: Get ESP32 boot flags
 #elif MCU_VARIANT == MCU_NRF52
 	// TODO: Get NRF52 boot flags
+#endif
+
+#if MCU_VARIANT == MCU_NRF52
+	unsigned long get_rng_seed() {
+		nrf_rng_error_correction_enable(NRF_RNG);
+		nrf_rng_shorts_disable(NRF_RNG, NRF_RNG_SHORT_VALRDY_STOP_MASK);
+		nrf_rng_task_trigger(NRF_RNG, NRF_RNG_TASK_START);
+		while (!nrf_rng_event_check(NRF_RNG, NRF_RNG_EVENT_VALRDY));
+		uint8_t rb_a = nrf_rng_random_value_get(NRF_RNG);
+		nrf_rng_event_clear(NRF_RNG, NRF_RNG_EVENT_VALRDY);
+		while (!nrf_rng_event_check(NRF_RNG, NRF_RNG_EVENT_VALRDY));
+		uint8_t rb_b = nrf_rng_random_value_get(NRF_RNG);
+		nrf_rng_event_clear(NRF_RNG, NRF_RNG_EVENT_VALRDY);
+		while (!nrf_rng_event_check(NRF_RNG, NRF_RNG_EVENT_VALRDY));
+		uint8_t rb_c = nrf_rng_random_value_get(NRF_RNG);
+		nrf_rng_event_clear(NRF_RNG, NRF_RNG_EVENT_VALRDY);
+		while (!nrf_rng_event_check(NRF_RNG, NRF_RNG_EVENT_VALRDY));
+		uint8_t rb_d = nrf_rng_random_value_get(NRF_RNG);
+		nrf_rng_event_clear(NRF_RNG, NRF_RNG_EVENT_VALRDY);
+		nrf_rng_task_trigger(NRF_RNG, NRF_RNG_TASK_STOP);
+		return rb_a << 24 | rb_b << 16 | rb_c << 8 | rb_d;
+	}
 #endif
 
 #if HAS_NP == true
@@ -286,6 +309,13 @@ uint8_t boot_vector = 0x00;
 		void led_tx_off() { digitalWrite(pin_led_tx, LOW); }
 		void led_id_on()  { }
 		void led_id_off() { }
+  #elif BOARD_MODEL == BOARD_XIAO_S3
+		void led_rx_on()  { digitalWrite(pin_led_rx, LED_ON); }
+		void led_rx_off() { digitalWrite(pin_led_rx, LED_OFF); }
+		void led_tx_on()  { digitalWrite(pin_led_tx, LED_ON); }
+		void led_tx_off() { digitalWrite(pin_led_tx, LED_OFF); }
+		void led_id_on()  { }
+		void led_id_off() { }
 	#elif BOARD_MODEL == BOARD_HUZZAH32
 		void led_rx_on()  { digitalWrite(pin_led_rx, HIGH); }
 		void led_rx_off() {	digitalWrite(pin_led_rx, LOW); }
@@ -293,7 +323,7 @@ uint8_t boot_vector = 0x00;
 		void led_tx_off() { digitalWrite(pin_led_tx, LOW); }
 		void led_id_on()  { }
 		void led_id_off() { }
-    #elif BOARD_MODEL == BOARD_XIAO_ESP32S3
+    #elif BOARD_MODEL == BOARD_XIAO_S3
         void led_rx_on() {}
         void led_rx_off() {}
         void led_tx_on() { digitalWrite(pin_led_tx, LED_ON); }
@@ -345,7 +375,7 @@ void hard_reset(void) {
 	#if MCU_VARIANT == MCU_ESP32
 		ESP.restart();
 	#elif MCU_VARIANT == MCU_NRF52
-        NVIC_SystemReset();
+    NVIC_SystemReset();
 	#endif
 }
 
@@ -1225,6 +1255,9 @@ void setTXPower(RadioInterface* radio, int txp) {
         }
     }
 
+    if (model == MODEL_16) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_17) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+
     if (model == MODEL_A1) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
     if (model == MODEL_A2) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
     if (model == MODEL_A3) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
@@ -1260,6 +1293,7 @@ void setTXPower(RadioInterface* radio, int txp) {
     if (model == MODEL_DC) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
 
     if (model == MODEL_DD) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_DE) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
 
     if (model == MODEL_E4) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
     if (model == MODEL_E9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
@@ -1490,7 +1524,7 @@ bool eeprom_product_valid() {
   #endif
 
 	#if PLATFORM == PLATFORM_ESP32
-	if (rval == PRODUCT_RNODE || rval == BOARD_RNODE_NG_20 || rval == BOARD_RNODE_NG_21 || rval == PRODUCT_HMBRW || rval == PRODUCT_TBEAM || rval == PRODUCT_T32_10 || rval == PRODUCT_T32_20 || rval == PRODUCT_T32_21 || rval == PRODUCT_H32_V2 || rval == PRODUCT_H32_V3 || rval == PRODUCT_HELTEC_WSL_V3 || rval == PRODUCT_TDECK_V1 || rval == PRODUCT_TBEAM_S_V1 || rval == PRODUCT_H_W_PAPER || rval == PRODUCT_XIAO_ESP32S3) {
+	if (rval == PRODUCT_RNODE || rval == BOARD_RNODE_NG_20 || rval == BOARD_RNODE_NG_21 || rval == PRODUCT_HMBRW || rval == PRODUCT_TBEAM || rval == PRODUCT_T32_10 || rval == PRODUCT_T32_20 || rval == PRODUCT_T32_21 || rval == PRODUCT_H32_V2 || rval == PRODUCT_H32_V3 || rval == PRODUCT_HELTEC_WSL_V3 || rval == PRODUCT_TDECK_V1 || rval == PRODUCT_TBEAM_S_V1 || rval == PRODUCT_H_W_PAPER || rval == PRODUCT_XIAO_S3) {
 	#elif PLATFORM == PLATFORM_NRF52
 	if (rval == PRODUCT_RAK4631 || rval == PRODUCT_HELTEC_T114 || rval == PRODUCT_OPENCOM_XL || rval == PRODUCT_TECHO || rval == PRODUCT_HMBRW) {
 	#else
@@ -1526,8 +1560,8 @@ bool eeprom_model_valid() {
 	if (model == MODEL_16 || model == MODEL_17) {
 	#elif BOARD_MODEL == BOARD_TBEAM_S_V1
 	if (model == MODEL_DB || model == MODEL_DC) {
-	#elif BOARD_MODEL == BOARD_XIAO_ESP32S3
-	if (model == MODEL_DD) {
+	#elif BOARD_MODEL == BOARD_XIAO_S3
+	if (model == MODEL_DD || model == MODEL_DE) {
 	#elif BOARD_MODEL == BOARD_LORA32_V1_0
 	if (model == MODEL_BA || model == MODEL_BB) {
 	#elif BOARD_MODEL == BOARD_LORA32_V2_0

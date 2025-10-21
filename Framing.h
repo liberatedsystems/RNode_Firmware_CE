@@ -60,6 +60,7 @@
   #define CMD_DISP_RCND   0x68
   #define CMD_NP_INT      0x65
   #define CMD_BT_CTRL     0x46
+  #define CMD_BT_UNPAIR   0x70
   #define CMD_BT_PIN      0x62
   #define CMD_DIS_IA      0x69
 
@@ -86,6 +87,10 @@
   #define CMD_DATA        0x00
 
   #define CMD_SEL_INT     0x1F
+  #define CMD_LOG         0x80
+  #define CMD_TIME        0x81
+  #define CMD_MUX_CHAIN   0x82
+  #define CMD_MUX_DSCVR   0x83
 
   #define DETECT_REQ      0x73
   #define DETECT_RESP     0x46

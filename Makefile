@@ -139,7 +139,7 @@ firmware-heltec_wsl_v3:
 firmware-heltec_w_paper:
 	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3E\""
 
-firmware-xiao_esp32s3:
+firmware-xiao_s3:
 	arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32S3 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3E\""
 
 firmware-rnode_ng_20: check_bt_buffers
@@ -218,13 +218,12 @@ upload-heltec_w_paper upload-heltec32_v3 upload-heltec_wsl_v3:
 	@sleep 3
 	$(PYTHON) ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyUSB0) --chip esp32-s3 --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 4MB 0x210000 ./Release/console_image.bin
 
-upload-xiao_esp32s3:
+upload-xiao_s3:
 	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn esp32:esp32:XIAO_ESP32S3
 	@sleep 1
 	$(VENV_BIN)/rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$($(PYTHON) ./partition_hashes ./build/esp32.esp32.XIAO_ESP32S3/RNode_Firmware_CE.ino.bin)
 	@sleep 3
 	$(PYTHON) ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) --chip esp32-s3 --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 8MB 0x210000 ./Release/console_image.bin
-
 
 upload-tdeck:
 	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn esp32:esp32:esp32s3
@@ -410,7 +409,7 @@ release-heltec_w_paper:
 	zip --junk-paths ./Release/rnode_firmware_heltecwpaper.zip ./Release/esptool/esptool.py ./Release/console_image.bin build/rnode_firmware_heltecwpaper.boot_app0 build/rnode_firmware_heltecwpaper.bin build/rnode_firmware_heltecwpaper.bootloader build/rnode_firmware_heltecwpaper.partitions
 	rm -r build
 
-release-xiao_esp32s3:
+release-xiao_s3:
 	arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32S3 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3E\""
 	cp ~/.arduino15/packages/esp32/hardware/esp32/$(ARDUINO_ESP_CORE_VER)/tools/partitions/boot_app0.bin build/rnode_firmware_xiao_esp32s3.boot_app0
 	cp build/esp32.esp32.XIAO_ESP32S3/RNode_Firmware_CE.ino.bin build/rnode_firmware_xiao_esp32s3.bin

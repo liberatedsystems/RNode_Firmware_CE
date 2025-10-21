@@ -97,6 +97,17 @@ void BLESerial::flush() {
   }
 }
 
+void BLESerial::disconnect() {
+  if (ble_server->getConnectedCount() > 0) {
+    uint16_t conn_id = ble_server->getConnId();
+    // Serial.printf("Have connected: %d\n", conn_id);
+    ble_server->disconnect(conn_id);
+    // Serial.println("Disconnected");
+  } else {
+    // Serial.println("No connected");
+  }
+}
+
 void BLESerial::begin(const char *name) {
   ConnectedDeviceCount = 0;
   BLEDevice::init(name);
@@ -111,13 +122,21 @@ void BLESerial::begin(const char *name) {
   BLEDevice::setSecurityCallbacks(this);
 
   SetupSerialService();
+  this->startAdvertising();
+}
 
+void BLESerial::startAdvertising() {
   ble_adv = BLEDevice::getAdvertising();
   ble_adv->addServiceUUID(BLE_SERIAL_SERVICE_UUID);
   ble_adv->setMinPreferred(0x20);
   ble_adv->setMaxPreferred(0x40);
   ble_adv->setScanResponse(true);
   ble_adv->start();
+}
+
+void BLESerial::stopAdvertising() {
+  ble_adv = BLEDevice::getAdvertising();
+  ble_adv->stop();
 }
 
 void BLESerial::end() { BLEDevice::deinit(); }
