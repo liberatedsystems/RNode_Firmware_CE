@@ -1221,10 +1221,55 @@ void set_implicit_length(uint8_t len) {
 	}
 }
 
+#if HAS_LORA_PA
+	const int tx_gain[PA_GAIN_POINTS] = {PA_GAIN_VALUES};
+#endif
+
+int map_target_power_to_modem_output(int target_tx_power) {
+	#if HAS_LORA_PA
+		int modem_output_dbm = -9;
+		for (int i = 0; i < PA_GAIN_POINTS; i++) {
+			int gain = tx_gain[i];
+			int effective_output_dbm = i + gain;
+			if (effective_output_dbm > target_tx_power) {
+				int diff = effective_output_dbm - target_tx_power;
+				modem_output_dbm = -1*diff;
+				break;
+			} else if (effective_output_dbm == target_tx_power) {
+				modem_output_dbm = i; break;
+			} else if (i == PA_GAIN_POINTS-1) {
+				int diff = target_tx_power - effective_output_dbm;
+				modem_output_dbm = i+diff; break;
+			}
+		}
+	#else
+		int modem_output_dbm = target_tx_power;
+	#endif
+
+	return modem_output_dbm;
+}
+
+int map_modem_output_to_target_power(int modem_output_dbm) {
+	#if HAS_LORA_PA
+		if (modem_output_dbm < 0)               { modem_output_dbm = 0; }
+		if (modem_output_dbm >= PA_GAIN_POINTS) { modem_output_dbm = PA_GAIN_POINTS-1; }
+		int gain = tx_gain[modem_output_dbm];
+		int target_tx_power = modem_output_dbm+gain;
+	#else
+		int target_tx_power = modem_output_dbm;
+	#endif
+
+	return target_tx_power;
+}
+
 void setTXPower(RadioInterface* radio, int txp) {
     // Todo, revamp this function. The current parameters for setTxPower are
     // suboptimal, as some chips have power amplifiers which means that the max
     // dBm is not always the same.
+    #if HAS_LORA_PA
+        txp = map_target_power_to_modem_output(txp);
+    #endif
+
     if (model == MODEL_12) {
         if (interfaces[radio->getIndex()] == SX1280) {
             radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
@@ -1276,6 +1321,7 @@ void setTXPower(RadioInterface* radio, int txp) {
     if (model == MODEL_C6) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
     if (model == MODEL_C7) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
     if (model == MODEL_CA) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_C8) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
 
     if (model == MODEL_D4) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
     if (model == MODEL_D9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
@@ -1515,7 +1561,7 @@ bool eeprom_product_valid() {
   #endif
 
 	#if PLATFORM == PLATFORM_ESP32
-	if (rval == PRODUCT_RNODE || rval == BOARD_RNODE_NG_20 || rval == BOARD_RNODE_NG_21 || rval == PRODUCT_HMBRW || rval == PRODUCT_TBEAM || rval == PRODUCT_T32_10 || rval == PRODUCT_T32_20 || rval == PRODUCT_T32_21 || rval == PRODUCT_H32_V2 || rval == PRODUCT_H32_V3 || rval == PRODUCT_TDECK_V1 || rval == PRODUCT_TBEAM_S_V1 || rval == PRODUCT_H_W_PAPER || rval == PRODUCT_XIAO_S3) {
+	if (rval == PRODUCT_RNODE || rval == BOARD_RNODE_NG_20 || rval == BOARD_RNODE_NG_21 || rval == PRODUCT_HMBRW || rval == PRODUCT_TBEAM || rval == PRODUCT_T32_10 || rval == PRODUCT_T32_20 || rval == PRODUCT_T32_21 || rval == PRODUCT_H32_V2 || rval == PRODUCT_H32_V3 || rval == PRODUCT_H32_V4 || rval == PRODUCT_TDECK_V1 || rval == PRODUCT_TBEAM_S_V1 || rval == PRODUCT_H_W_PAPER || rval == PRODUCT_XIAO_S3) {
 	#elif PLATFORM == PLATFORM_NRF52
 	if (rval == PRODUCT_RAK4631 || rval == PRODUCT_HELTEC_T114 || rval == PRODUCT_OPENCOM_XL || rval == PRODUCT_TECHO || rval == PRODUCT_HMBRW) {
 	#else
