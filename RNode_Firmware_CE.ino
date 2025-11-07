@@ -179,7 +179,7 @@ void setup() {
     boot_seq();
   #endif
 
-  #if BOARD_MODEL != BOARD_RAK4631 && BOARD_MODEL != BOARD_HELTEC_T114 && BOARD_MODEL != BOARD_TECHO && BOARD_MODEL != BOARD_T3S3 && BOARD_MODEL != BOARD_TBEAM_S_V1 && BOARD_MODEL != BOARD_OPENCOM_XL
+  #if BOARD_MODEL != BOARD_RAK4631 && BOARD_MODEL != BOARD_HELTEC_T114 && BOARD_MODEL != BOARD_TECHO && BOARD_MODEL != BOARD_T3S3 && BOARD_MODEL != BOARD_TBEAM_S_V1 && BOARD_MODEL != BOARD_OPENCOM_XL && BOARD_MODEL != BOARD_HELTEC32_V4
   // Some boards need to wait until the hardware UART is set up before booting
   // the full firmware. In the case of the RAK4631/TECHO, the line below will wait
   // until a serial connection is actually established with a master. Thus, it
@@ -949,6 +949,21 @@ void serial_callback(uint8_t sbyte) {
         kiss_indicate_txpower(selected_radio);
       } else {
         int8_t txp = (int8_t)sbyte;
+        #if MODEM == SX1262
+          #if HAS_LORA_PA
+            if (txp > PA_MAX_OUTPUT) txp = PA_MAX_OUTPUT;
+          #else
+            if (txp > 22) txp = 22;
+          #endif
+        #elif MODEM == SX1280
+          #if HAS_PA
+            if (txp > 20) txp = 20;
+          #else
+            if (txp > 13) txp = 13;
+          #endif
+        #else
+          if (txp > 17) txp = 17;
+        #endif
 
         if (op_mode == MODE_HOST) setTXPower(selected_radio, txp);
         kiss_indicate_txpower(selected_radio);
@@ -1653,6 +1668,12 @@ void sleep_now() {
       #if BOARD_MODEL == BOARD_T3S3 || BOARD_MODEL == BOARD_XIAO_S3
         display_intensity = 0;
         update_display(true);
+      #endif
+      #if BOARD_MODEL == BOARD_HELTEC32_V4
+          digitalWrite(LORA_PA_CPS, LOW);
+          digitalWrite(LORA_PA_CSD, LOW);
+          digitalWrite(LORA_PA_PWR_EN, LOW);
+          digitalWrite(Vext, HIGH);
       #endif
       #if PIN_DISP_SLEEP >= 0
         pinMode(PIN_DISP_SLEEP, OUTPUT);
