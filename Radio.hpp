@@ -318,6 +318,11 @@ public:
         int current_rssi = currentRssi();
         if (!_dcd) {
             if (!_noise_floor_sampled || current_rssi < _noise_floor + CSMA_INFR_THRESHOLD_DB) {
+                #if HAS_LORA_LNA
+                  // Discard invalid samples due to gain variance
+                  // during LoRa LNA re-calibration
+                  if (current_rssi < _noise_floor-LORA_LNA_GVT) { return; }
+                #endif
                 _noise_floor_buffer[_noise_floor_sample] = current_rssi;
                 _noise_floor_sample = _noise_floor_sample+1;
                 if (_noise_floor_sample >= NOISE_FLOOR_SAMPLES) {
