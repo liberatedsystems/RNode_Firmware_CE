@@ -399,6 +399,30 @@ int sx126x::begin()
   setModulationParams(_sf, _bw, _cr, _ldro);
   setPacketParams(_preambleLength, _implicitHeaderMode, _payloadLength, _crcMode);
 
+  #if HAS_LORA_PA
+    #if LORA_PA_GC1109
+      // Enable Vfem_ctl for supply to
+      // PA power net.
+      pinMode(LORA_PA_PWR_EN, OUTPUT);
+      digitalWrite(LORA_PA_PWR_EN, HIGH);
+
+      // Enable PA LNA and TX standby
+      pinMode(LORA_PA_CSD, OUTPUT);
+      digitalWrite(LORA_PA_CSD, HIGH);
+
+      // Keep PA CPS permanently enabled. Toggling it
+      // between TX/RX causes the LNA gain to become
+      // unstable ("wonky"), so it is left on as long
+      // as the radio is powered up.
+      pinMode(LORA_PA_CPS, OUTPUT);
+      digitalWrite(LORA_PA_CPS, HIGH);
+
+      // On Heltec V4, the PA CTX pin is driven by
+      // the SX1262 DIO2 pin directly, so we do not
+      // need to manually raise this.
+    #endif
+  #endif
+
   _radio_online = true;
   return 1;
 }
@@ -511,6 +535,9 @@ int ISR_VECT sx126x::currentRssi() {
     uint8_t byte = 0;
     executeOpcodeRead(OP_CURRENT_RSSI_6X, &byte, 1);
     int rssi = -(int(byte)) / 2;
+    #if HAS_LORA_LNA
+      rssi -= LORA_LNA_GAIN;
+    #endif
     return rssi;
 }
 
@@ -521,10 +548,12 @@ uint8_t sx126x::packetRssiRaw() {
 }
 
 int ISR_VECT sx126x::packetRssi(uint8_t pkt_snr_raw) {
-    // may need more calculations here
     uint8_t buf[3] = {0};
     executeOpcodeRead(OP_PACKET_STATUS_6X, buf, 3);
     int pkt_rssi = -buf[0] / 2;
+    #if HAS_LORA_LNA
+      pkt_rssi -= LORA_LNA_GAIN;
+    #endif
     return pkt_rssi;
 }
 
@@ -712,6 +741,8 @@ void sx126x::enableTCXO() {
     #elif BOARD_MODEL == BOARD_HELTEC_T114
       uint8_t buf[4] = {MODE_TCXO_1_8V_6X, 0x00, 0x00, 0xFF};
     #elif BOARD_MODEL == BOARD_E22_ESP32
+      uint8_t buf[4] = {MODE_TCXO_1_8V_6X, 0x00, 0x00, 0xFF};
+    #elif BOARD_MODEL == BOARD_HELTEC32_V4
       uint8_t buf[4] = {MODE_TCXO_1_8V_6X, 0x00, 0x00, 0xFF};
     #else
       uint8_t buf[4] = {0};

@@ -52,7 +52,9 @@
 #define CSMA_CW_PER_BAND_WINDOWS   15
 #define CSMA_BAND_1_MAX_AIRTIME    7
 #define CSMA_BAND_N_MIN_AIRTIME    85
-#define CSMA_INFR_THRESHOLD_DB     12
+#define CSMA_INFR_THRESHOLD_DB     6
+#define CSMA_RFENV_RECAL_MS        2500
+#define CSMA_RFENV_RECAL_LIMIT_DB -83
 
 #define LED_ID_TRIG 16
 
@@ -98,7 +100,7 @@ public:
     _csma_slot_ms(CSMA_SLOT_MIN_MS),
     _preambleLength(LORA_PREAMBLE_SYMBOLS_MIN), _lora_symbol_time_ms(0.0),
     _lora_preamble_time_ms(0), _lora_header_time_ms(0), _lora_symbol_rate(0.0), _lora_us_per_byte(0.0), _bitrate(0),
-     _packet{0}, _onReceive(NULL), _txp(0), _ldro(false), _limit_rate(false), _interference_detected(false), _avoid_interference(true), _difs_ms(CSMA_SIFS_MS + 2 * _csma_slot_ms), _difs_wait_start(0), _cw_wait_start(0), _cw_wait_target(0), _cw_wait_passed(0), _csma_cw(-1), _cw_band(1), _cw_min(0), _cw_max(CSMA_CW_PER_BAND_WINDOWS), _noise_floor_sampled(false), _noise_floor_sample(0), _noise_floor_buffer({0}), _noise_floor(-292), _led_id_filter(0), _preamble_detected_at(0) {};
+     _packet{0}, _onReceive(NULL), _txp(0), _ldro(false), _limit_rate(false), _interference_detected(false), _interference_persists(false), _interference_start(0), _avoid_interference(true), _difs_ms(CSMA_SIFS_MS + 2 * _csma_slot_ms), _difs_wait_start(0), _cw_wait_start(0), _cw_wait_target(0), _cw_wait_passed(0), _csma_cw(-1), _cw_band(1), _cw_min(0), _cw_max(CSMA_CW_PER_BAND_WINDOWS), _noise_floor_sampled(false), _noise_floor_sample(0), _noise_floor_buffer({0}), _noise_floor(-292), _led_id_filter(0), _preamble_detected_at(0) {};
 
     virtual void reset() = 0;
 
@@ -286,6 +288,19 @@ public:
       if (_interference_detected) { if (_led_id_filter < LED_ID_TRIG) { _led_id_filter += 1; } }
       else                       { if (_led_id_filter > 0) {_led_id_filter -= 1; } }
 
+      // Handle potential false interference detection due to
+      // LNA recalibration, antenna swap, moving into new RF
+      // environment or similar.
+      if (_interference_detected && current_rssi < CSMA_RFENV_RECAL_LIMIT_DB) {
+        if (!_interference_persists) {
+          _interference_persists = true; _interference_start = millis();
+        } else {
+          if (millis()-_interference_start >= CSMA_RFENV_RECAL_MS) { _noise_floor_sampled = false; _interference_persists = false; }
+        }
+      } else {
+        _interference_persists = false;
+      }
+
       if (carrier_detected) { _dcd = true; } else { _dcd = false; }
 
       _dcd_led = _dcd;
@@ -435,6 +450,8 @@ protected:
     bool _ldro;
     bool _limit_rate;
     bool _interference_detected;
+    bool _interference_persists;
+    uint32_t _interference_start;
     bool _avoid_interference;
     int _csma_slot_ms;
     unsigned long _difs_ms;
