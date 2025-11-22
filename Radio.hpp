@@ -58,7 +58,7 @@
 
 #define LED_ID_TRIG 16
 
-#define NOISE_FLOOR_SAMPLES 64
+#define NOISE_FLOOR_SAMPLES 128
 
 #define RSSI_OFFSET 157
 
@@ -284,7 +284,12 @@ public:
         portEXIT_CRITICAL();
       #endif
 
-      _interference_detected = !carrier_detected && (current_rssi > (_noise_floor+CSMA_INFR_THRESHOLD_DB));
+      #if BOARD_MODEL == BOARD_HELTEC32_V4
+        if (_noise_floor > LNA_GD_THRSHLD) { _interference_detected = !carrier_detected && (current_rssi > (_noise_floor+CSMA_INFR_THRESHOLD_DB)); }
+        else                               { _interference_detected = !carrier_detected && (current_rssi > LNA_GD_LIMIT); }
+      #else
+        _interference_detected = !carrier_detected && (current_rssi > (_noise_floor+CSMA_INFR_THRESHOLD_DB));
+      #endif
       if (_interference_detected) { if (_led_id_filter < LED_ID_TRIG) { _led_id_filter += 1; } }
       else                       { if (_led_id_filter > 0) {_led_id_filter -= 1; } }
 
@@ -317,20 +322,26 @@ public:
     void updateNoiseFloor() {
         int current_rssi = currentRssi();
         if (!_dcd) {
+            #if BOARD_MODEL != BOARD_HELTEC32_V4
             if (!_noise_floor_sampled || current_rssi < _noise_floor + CSMA_INFR_THRESHOLD_DB) {
+            #else
+            if ((!_noise_floor_sampled || current_rssi < _noise_floor + CSMA_INFR_THRESHOLD_DB) || (_noise_floor_sampled && (_noise_floor < LNA_GD_THRSHLD && current_rssi <= LNA_GD_LIMIT))) {
+            #endif
                 #if HAS_LORA_LNA
                   // Discard invalid samples due to gain variance
                   // during LoRa LNA re-calibration
                   if (current_rssi < _noise_floor-LORA_LNA_GVT) { return; }
                 #endif
+                bool sum_noise_floor = false;
                 _noise_floor_buffer[_noise_floor_sample] = current_rssi;
                 _noise_floor_sample = _noise_floor_sample+1;
                 if (_noise_floor_sample >= NOISE_FLOOR_SAMPLES) {
                     _noise_floor_sample %= NOISE_FLOOR_SAMPLES;
                     _noise_floor_sampled = true;
+                    sum_noise_floor = true;
                 }
 
-                if (_noise_floor_sampled) {
+                if (_noise_floor_sampled && sum_noise_floor) {
                     _noise_floor = 0;
                     for (int ni = 0; ni < NOISE_FLOOR_SAMPLES; ni++) { _noise_floor += _noise_floor_buffer[ni]; }
                     _noise_floor /= NOISE_FLOOR_SAMPLES;
