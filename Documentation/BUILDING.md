@@ -4,7 +4,7 @@ The build system of this repository is based on GNU Make. The `Makefile` is in t
 
 Firstly, figure out which MCU platform your supported board is based on. The table below can help you.
 
-| Board name | Link | Transceiver | MCU | Description | 
+| Board name | Link | Transceiver | MCU | Description |
 | :--- | :---: | :---: | :---: | :---: |
 | Handheld v2.x RNodes | [Buy here](https://unsigned.io/shop/product/handheld-rnode) | SX1276 | ESP32 |
 | RAK4631 | [Buy here](https://store.rakwireless.com/products/rak4631-lpwan-node?m=5&h=wisblock-core) | SX1262 | nRF52 |
@@ -13,7 +13,7 @@ Firstly, figure out which MCU platform your supported board is based on. The tab
 | LilyGO LoRa32 v2.0 | No link | SX1276/8 | ESP32 | Discontinued? |
 | LilyGO LoRa32 v2.1 |  [Buy here](https://www.lilygo.cc/products/lora3) | SX1276/8 | ESP32 | With and without TCXO |
 | Heltec LoRa32 v2 | No link | SX1276/8 | ESP32 | Discontinued? |
-| Heltec LoRa32 v3 | [Buy here](https://heltec.org/project/wifi-lora-32-v3/) | SX1262 | ESP32 | 
+| Heltec LoRa32 v3 | [Buy here](https://heltec.org/project/wifi-lora-32-v3/) | SX1262 | ESP32 |
 | Homebrew ESP32 boards | | Any supported | ESP32 | This can be any board with an Adafruit Feather (or generic) ESP32 chip |
 
 ### ESP32
@@ -24,7 +24,7 @@ If your board is nRF52-based, please run `make prep-nrf` to install the required
 
 ## Compiling
 Next, you need to find the name of the target for your board. Please reference the table below to do so:
-| Board name | Target | 
+| Board name | Target |
 | :--- | :---: |
 | Handheld v2.x RNodes | `rnode_ng_20` |
 | RAK4631 | `rak4631` |
@@ -34,7 +34,7 @@ Next, you need to find the name of the target for your board. Please reference t
 | LilyGO LoRa32 v2.0 | `lora32_v20` |
 | LilyGO LoRa32 v2.1 | `lora32_v21` |
 | Heltec LoRa32 v2 | `heltec32_v2` |
-| Heltec LoRa32 v3 | `heltec32_v3` | 
+| Heltec LoRa32 v3 | `heltec32_v3` |
 | Homebrew ESP32 boards | `genericesp32` |
 
 After you've ascertained the target for the board simply run the following to compile for the board:
@@ -107,6 +107,8 @@ PRODUCT_H32_V3 = 0xC1
 PRODUCT_TBEAM  = 0xE0
 PRODUCT_HMBRW  = 0xF0
 ```
+
+For an up-to-date list of Products and Models, please check the source code in `rnodeconf`.
 
 **Please note**, you must re-compile the firmware each time you make changes **before** you flash it, else you will just be flashing the previous version of the firmware without the new changes!
 

@@ -93,7 +93,12 @@
   #define BOARD_HELTEC32_V3   0x3A
   #define MODEL_C5            0xC5 // Heltec Lora32 v3, 433 MHz
   #define MODEL_CA            0xCA // Heltec Lora32 v3, 868 MHz
-  
+
+  #define PRODUCT_HELTEC_WSL_V3 0xCC // Heltec Wireless Stick Lite v3
+  #define BOARD_HELTEC_WSL_V3   0xCD
+  #define MODEL_CE            0xCE // Heltec WSL v3, 433 MHz
+  #define MODEL_CF            0xCF // Heltec WSL v3, 868 MHz
+
   #define PRODUCT_H_W_PAPER   0xC3
   #define BOARD_H_W_PAPER     0x3F
   #define MODEL_C8            0xC8
@@ -190,15 +195,15 @@
       const int pin_led_rx = 14;
       const int pin_led_tx = 32;
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1276};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX127X
           {
               true, // DEFAULT_SPI
               false, // HAS_TCXO
               false  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX127X
           {
               4, // pin_ss
@@ -233,15 +238,15 @@
 
       #if BOARD_VARIANT == MODEL_E4 || BOARD_VARIANT == MODEL_E9
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1276};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX127X
           {
               true, // DEFAULT_SPI
               false, // HAS_TCXO
               false  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX127X
           {
               18, // pin_ss
@@ -260,15 +265,15 @@
       #elif BOARD_VARIANT == MODEL_E3 || BOARD_VARIANT == MODEL_E8
       #define OCP_TUNED 0x38
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1262
           {
               true, // DEFAULT_SPI
               true, // HAS_TCXO
               true  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1262
           {
               18, // pin_ss
@@ -294,15 +299,15 @@
       const int pin_led_tx = 32;
 
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1276};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX127X
           {
               true, // DEFAULT_SPI
               false, // HAS_TCXO
               false  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX127X
           {
                4, // pin_ss
@@ -337,15 +342,15 @@
       #endif
 
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1276};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1276
           {
               true, // DEFAULT_SPI
               false, // HAS_TCXO
               false  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1276
           {
               18, // pin_ss
@@ -381,15 +386,15 @@
 
 
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1276};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX127X
           {
               true, // DEFAULT_SPI
               false, // HAS_TCXO
               false  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX127X
           {
               18, // pin_ss
@@ -414,20 +419,20 @@
       #define HAS_CONSOLE true
       #define HAS_EEPROM true
       #define INTERFACE_COUNT 1
-      
+
       const int pin_np = 12;
 
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1276};
       #if HAS_TCXO == true
-        const bool interface_cfg[INTERFACE_COUNT][3] = { 
+        const bool interface_cfg[INTERFACE_COUNT][3] = {
                         // SX127X
               {
                   true, // DEFAULT_SPI
                   true, // HAS_TCXO
                   false  // DIO2_AS_RF_SWITCH
-              }, 
+              },
         };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX127X
           {
               18, // pin_ss
@@ -452,16 +457,16 @@
       #endif
 
       #if HAS_TCXO == false
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX127X
           {
               true, // DEFAULT_SPI
               false, // HAS_TCXO
               false  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
 
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX127X
           {
               18, // pin_ss
@@ -501,15 +506,15 @@
       #endif
 
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1276};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX127X
           {
               true, // DEFAULT_SPI
               false, // HAS_TCXO
               false  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX127X
           {
               18, // pin_ss
@@ -552,15 +557,60 @@
       #endif
 
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1262
           {
               true, // DEFAULT_SPI
               true, // HAS_TCXO
               true  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
+                  // SX1262
+          {
+              8, // pin_ss
+              9, // pin_sclk
+              10, // pin_mosi
+              11, // pin_miso
+              13, // pin_busy
+              14, // pin_dio
+              12, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
+
+    #elif BOARD_MODEL == BOARD_HELTEC_WSL_V3
+      #define IS_ESP32S3 true
+      #define HAS_DISPLAY false
+      #define HAS_BLUETOOTH false
+      #define HAS_BLE true
+      #define HAS_PMU true
+      #define HAS_CONSOLE true
+      #define HAS_EEPROM true
+      #define HAS_INPUT true
+      #define HAS_SLEEP true
+      #define PIN_WAKEUP GPIO_NUM_0
+      #define WAKEUP_LEVEL 0
+      #define INTERFACE_COUNT 1
+      #define OCP_TUNED 0x38
+
+      const int pin_btn_usr1 = 0;
+
+      const int pin_led_rx = 35;
+      const int pin_led_tx = 35;
+
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
+                    // SX1262
+          {
+              true, // DEFAULT_SPI
+              true, // HAS_TCXO
+              true  // DIO2_AS_RF_SWITCH
+          },
+      };
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1262
           {
               8, // pin_ss
@@ -608,15 +658,15 @@
       #endif
 
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1262
           {
               true, // DEFAULT_SPI
               true, // HAS_TCXO
               true  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1262
           {
               8, // pin_ss
@@ -662,15 +712,15 @@
 
 
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1276};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1276
           {
               false, // DEFAULT_SPI
               true, // HAS_TCXO
               true  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const uint8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const uint8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1276
           {
               8, // pin_ss
@@ -714,15 +764,15 @@
       #endif
 
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1276};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX127X
           {
               true, // DEFAULT_SPI
               false, // HAS_TCXO
               false  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const uint8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const uint8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX127X
           {
               18, // pin_ss
@@ -737,7 +787,7 @@
               -1  // pin_tcxo_enable
           }
       };
-   
+
     #elif BOARD_MODEL == BOARD_T3S3
       #define IS_ESP32S3 true
       #define HAS_DISPLAY true
@@ -760,15 +810,15 @@
 
       #if BOARD_VARIANT == MODEL_A1 || BOARD_VARIANT == MODEL_A6
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1262
           {
               false, // DEFAULT_SPI
               true, // HAS_TCXO
               true  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const uint8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const uint8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1262
           {
                7, // pin_ss
@@ -785,15 +835,15 @@
       };
       #elif BOARD_VARIANT == MODEL_A5 || BOARD_VARIANT == MODEL_AA
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1278};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1278
           {
               false, // DEFAULT_SPI
               false, // HAS_TCXO
               false  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const uint8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const uint8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1278
           {
                7, // pin_ss
@@ -808,18 +858,18 @@
               -1  // pin_tcxo_enable
           }
       };
-      #elif BOARD_VARIANT == MODEL_AC // SX1280 with PA 
+      #elif BOARD_VARIANT == MODEL_AC // SX1280 with PA
       #define CONFIG_QUEUE_0_SIZE 6144
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1280};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1280
           {
               false, // DEFAULT_SPI
               false, // HAS_TCXO
               false  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const uint8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const uint8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1280
           {
                7, // pin_ss
@@ -835,7 +885,7 @@
           }
       };
       #endif
-      
+
       const int pin_np = 38;
       const int pin_dac = 25;
       const int pin_adc = 1;
@@ -874,7 +924,7 @@
 
       const int pin_poweron = 10;
       const int pin_btn_usr1 = 0;
-      
+
       const int SD_MISO = 38;
       const int SD_MOSI = 41;
       const int SD_CLK = 40;
@@ -890,15 +940,15 @@
       #define INTERFACE_COUNT 1
 
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1262
           {
               false, // DEFAULT_SPI
               true, // HAS_TCXO
               true  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const uint8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const uint8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1262
           {
                9, // pin_ss
@@ -940,13 +990,13 @@
 
       #define HAS_INPUT true
       #define HAS_SLEEP false
-      
+
       #define PMU_IRQ 40
       #define I2C_SCL 41
       #define I2C_SDA 42
 
       const int pin_btn_usr1 = 0;
-      
+
       const int SD_MISO = 37;
       const int SD_MOSI = 35;
       const int SD_CLK = 36;
@@ -957,15 +1007,15 @@
       #define INTERFACE_COUNT 1
 
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1262
           {
               false, // DEFAULT_SPI
               true, // HAS_TCXO
               true  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const uint8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const uint8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1262
           {
               10, // pin_ss
@@ -997,7 +1047,7 @@
       // currently there is only support for using one Bluetooth type,
       // Bluetooth has been chosen over BLE as it is less experimental
       #define HAS_BLUETOOTH true
-      //#define HAS_BLE true 
+      //#define HAS_BLE true
       #define HAS_CONSOLE true
       #define HAS_SD false
       #define HAS_EEPROM true
@@ -1008,15 +1058,15 @@
       const int pin_led_tx = 4;
 
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1262
           {
               false, // DEFAULT_SPI
               true, // HAS_TCXO
               true  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1262
           {
               18, // pin_ss
@@ -1061,15 +1111,15 @@
       const int pin_btn_usr1 = 21;
 
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1262
           {
               true, // DEFAULT_SPI
               true, // HAS_TCXO
               true  // DIO2_AS_RF_SWITCH
-          }, 
+          },
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1262
           {
               41, // pin_ss
@@ -1107,7 +1157,7 @@
     #else
       #error An unsupported ESP32 board was selected. Cannot compile RNode firmware.
     #endif
-  
+
   #elif MCU_VARIANT == MCU_NRF52
     #define CONFIG_UART_BUFFER_SIZE 6144
     #define CONFIG_QUEUE_0_SIZE 6144
@@ -1138,7 +1188,7 @@
       #define HAS_BACKLIGHT true
       // first interface in list is the primary
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                   // SX1262
           {
               false, // DEFAULT_SPI
@@ -1147,10 +1197,10 @@
           }
       };
 
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1262
           {
-              24, // pin_ss 
+              24, // pin_ss
               19, // pin_sclk
               22, // pin_mosi
               23, // pin_miso
@@ -1192,7 +1242,7 @@
 
     #elif BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL
       #define HAS_EEPROM false
-      #define HAS_DISPLAY false 
+      #define HAS_DISPLAY false
       #define HAS_BLUETOOTH false
       #define HAS_BLE true
       #define HAS_CONSOLE false
@@ -1213,7 +1263,7 @@
 
       // first interface in list is the primary
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1262
           {
               false, // DEFAULT_SPI
@@ -1221,7 +1271,7 @@
               true  // DIO2_AS_RF_SWITCH
           }
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1262
           {
               42, // pin_ss
@@ -1249,21 +1299,21 @@
 
       // first interface in list is the primary
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262, SX1280};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1262
           {
               false, // DEFAULT_SPI
               true, // HAS_TCXO
               true  // DIO2_AS_RF_SWITCH
-          }, 
+          },
                     // SX1280
           {
               true, // DEFAULT_SPI
               false,// HAS_TCXO
               false // DIO2_AS_RF_SWITCH
-          } 
+          }
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1262
           {
               42, // pin_ss
@@ -1289,7 +1339,7 @@
               20, // pin_txen
               19, // pin_rxen
               -1  // pin_tcxo_enable
-          } 
+          }
       };
 
       #endif
@@ -1360,7 +1410,7 @@
       #define INTERFACE_COUNT 1
 
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
-      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1262
           {
               false, // DEFAULT_SPI
@@ -1368,7 +1418,7 @@
               true  // DIO2_AS_RF_SWITCH
           }
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
                   // SX1262
           {
               24, // pin_ss
@@ -1388,7 +1438,7 @@
       #define HAS_GPS true
       #define GPS_BAUD_RATE 9600
       #define PIN_GPS_RX 37
-      #define PIN_GPS_TX 39 
+      #define PIN_GPS_TX 39
       #endif
     #else
       #error An unsupported nRF board was selected. Cannot compile RNode firmware.
@@ -1407,7 +1457,7 @@
   #ifndef LED_ON
     #define LED_ON HIGH
   #endif
-  
+
   #ifndef LED_OFF
     #define LED_OFF LOW
   #endif

@@ -131,6 +131,23 @@
   bool bat_voltage_dropping = false;
   float bat_delay_v = 0;
   float bat_state_change_v = 0;
+#elif BOARD_MODEL == BOARD_HELTEC_WSL_V3
+  #define BAT_V_MIN       3.15
+  #define BAT_V_MAX       4.3
+  #define BAT_V_CHG       4.48
+  #define BAT_V_FLOAT     4.33
+  #define BAT_SAMPLES     7
+  const uint8_t pin_vbat = 1;
+  const uint8_t pin_ctrl = 37;
+  float bat_p_samples[BAT_SAMPLES];
+  float bat_v_samples[BAT_SAMPLES];
+  uint8_t bat_samples_count = 0;
+  int bat_discharging_samples = 0;
+  int bat_charging_samples = 0;
+  int bat_charged_samples = 0;
+  bool bat_voltage_dropping = false;
+  float bat_delay_v = 0;
+  float bat_state_change_v = 0;
 #elif BOARD_MODEL == BOARD_HELTEC_T114
   #define BAT_V_MIN       3.15
   #define BAT_V_MAX       4.165
@@ -178,7 +195,7 @@ void measure_battery() {
     battery_installed = true;
     battery_indeterminate = true;
 
-    #if BOARD_MODEL == BOARD_HELTEC32_V3
+    #if BOARD_MODEL == BOARD_HELTEC32_V3 || BOARD_MODEL == BOARD_HELTEC_WSL_V3
       float battery_measurement = (float)(analogRead(pin_vbat)) * 0.0041;
     #elif BOARD_MODEL == BOARD_T3S3
       float battery_measurement = (float)(analogRead(pin_vbat)) / 4095.0*6.7828;
@@ -192,7 +209,7 @@ void measure_battery() {
 
     bat_v_samples[bat_samples_count%BAT_SAMPLES] = battery_measurement;
     bat_p_samples[bat_samples_count%BAT_SAMPLES] = ((battery_voltage-BAT_V_MIN) / (BAT_V_MAX-BAT_V_MIN))*100.0;
-    
+
     bat_samples_count++;
     if (!battery_ready && bat_samples_count >= BAT_SAMPLES) {
       battery_ready = true;
@@ -205,13 +222,13 @@ void measure_battery() {
         battery_percent += bat_p_samples[bi];
       }
       battery_percent = battery_percent/BAT_SAMPLES;
-      
+
       battery_voltage = 0;
       for (uint8_t bi = 0; bi < BAT_SAMPLES; bi++) {
         battery_voltage += bat_v_samples[bi];
       }
       battery_voltage = battery_voltage/BAT_SAMPLES;
-      
+
       if (bat_delay_v == 0) bat_delay_v = battery_voltage;
       if (bat_state_change_v == 0) bat_state_change_v = battery_voltage;
       if (battery_percent > 100.0) battery_percent = 100.0;
@@ -437,7 +454,7 @@ bool init_pmu() {
   #if BOARD_MODEL == BOARD_RNODE_NG_21 || BOARD_MODEL == BOARD_LORA32_V2_1 || BOARD_MODEL == BOARD_TDECK || BOARD_MODEL == BOARD_T3S3 || BOARD_MODEL == BOARD_TECHO
     pinMode(pin_vbat, INPUT);
     return true;
-  #elif BOARD_MODEL == BOARD_HELTEC32_V3
+  #elif BOARD_MODEL == BOARD_HELTEC32_V3 || BOARD_MODEL == BOARD_HELTEC_WSL_V3
     pinMode(pin_ctrl,OUTPUT);
     digitalWrite(pin_ctrl, LOW);
     return true;
@@ -565,7 +582,7 @@ bool init_pmu() {
     // Set the time of pressing the button to turn off
     PMU->setPowerKeyPressOffTime(XPOWERS_POWEROFF_4S);
 
-    return true; 
+    return true;
   #elif BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL
     // board doesn't have PMU but we can measure batt voltage
 
@@ -660,7 +677,7 @@ bool init_pmu() {
     PMU->enableBattVoltageMeasure();
 
 
-    return true; 
+    return true;
   #else
     return false;
   #endif

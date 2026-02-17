@@ -20,7 +20,7 @@
 #include <algorithm>
 #include <iterator>
 
-#if HAS_EEPROM 
+#if HAS_EEPROM
     #include <EEPROM.h>
 #elif PLATFORM == PLATFORM_NRF52
 		#include <hal/nrf_rng.h>
@@ -288,6 +288,13 @@ uint8_t boot_vector = 0x00;
 			void led_tx_off() { digitalWrite(pin_led_tx, LOW); }
 			void led_id_on()  { }
 			void led_id_off() { }
+	#elif BOARD_MODEL == BOARD_HELTEC_WSL_V3
+			void led_rx_on()  { digitalWrite(pin_led_rx, HIGH); }
+			void led_rx_off() {	digitalWrite(pin_led_rx, LOW); }
+			void led_tx_on()  { digitalWrite(pin_led_tx, HIGH); }
+			void led_tx_off() { digitalWrite(pin_led_tx, LOW); }
+			void led_id_on()  { }
+			void led_id_off() { }
 	#elif BOARD_MODEL == BOARD_H_W_PAPER
 			void led_rx_on()  { digitalWrite(pin_led_rx, HIGH); }
 			void led_rx_off() {	digitalWrite(pin_led_rx, LOW); }
@@ -542,7 +549,7 @@ unsigned long led_standby_ticks = 0;
 		unsigned long led_standby_wait = 350;
 		unsigned long led_console_wait = 1;
 		unsigned long led_notready_wait = 200;
-	
+
 	#else
 		uint8_t led_standby_min = 200;
 		uint8_t led_standby_max = 255;
@@ -578,7 +585,7 @@ int8_t  led_standby_direction = 0;
 
         if (led_standby_ticks > led_standby_wait) {
             led_standby_ticks = 0;
-            
+
             if (led_standby_value <= led_standby_min) {
                 led_standby_direction = 1;
             } else if (led_standby_value >= led_standby_max) {
@@ -606,7 +613,7 @@ int8_t  led_standby_direction = 0;
 
         // if (led_standby_ticks > led_console_wait) {
         // 	led_standby_ticks = 0;
-            
+
         // 	if (led_standby_value <= led_standby_min) {
         // 		led_standby_direction = 1;
         // 	} else if (led_standby_value >= led_standby_max) {
@@ -677,7 +684,7 @@ void led_indicate_not_ready() {
 
         if (led_standby_ticks > led_notready_wait) {
             led_standby_ticks = 0;
-            
+
             if (led_standby_value <= led_standby_min) {
                 led_standby_direction = 1;
             } else if (led_standby_value >= led_standby_max) {
@@ -1276,6 +1283,8 @@ void setTXPower(RadioInterface* radio, int txp) {
     if (model == MODEL_C6) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
     if (model == MODEL_C7) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
     if (model == MODEL_CA) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+	if (model == MODEL_CE) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+	if (model == MODEL_CF) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
 
     if (model == MODEL_D4) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
     if (model == MODEL_D9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
@@ -1319,7 +1328,7 @@ uint16_t getQueueSize(uint8_t index) {
         case 3:
             return CONFIG_QUEUE_3_SIZE;
         #endif
-        #if INTERFACE_COUNT > 4 
+        #if INTERFACE_COUNT > 4
         case 4:
             return CONFIG_QUEUE_4_SIZE;
         #endif
@@ -1515,7 +1524,7 @@ bool eeprom_product_valid() {
   #endif
 
 	#if PLATFORM == PLATFORM_ESP32
-	if (rval == PRODUCT_RNODE || rval == BOARD_RNODE_NG_20 || rval == BOARD_RNODE_NG_21 || rval == PRODUCT_HMBRW || rval == PRODUCT_TBEAM || rval == PRODUCT_T32_10 || rval == PRODUCT_T32_20 || rval == PRODUCT_T32_21 || rval == PRODUCT_H32_V2 || rval == PRODUCT_H32_V3 || rval == PRODUCT_TDECK_V1 || rval == PRODUCT_TBEAM_S_V1 || rval == PRODUCT_H_W_PAPER || rval == PRODUCT_XIAO_S3) {
+	if (rval == PRODUCT_RNODE || rval == BOARD_RNODE_NG_20 || rval == BOARD_RNODE_NG_21 || rval == PRODUCT_HMBRW || rval == PRODUCT_TBEAM || rval == PRODUCT_T32_10 || rval == PRODUCT_T32_20 || rval == PRODUCT_T32_21 || rval == PRODUCT_H32_V2 || rval == PRODUCT_H32_V3 || rval == PRODUCT_HELTEC_WSL_V3 || rval == PRODUCT_TDECK_V1 || rval == PRODUCT_TBEAM_S_V1 || rval == PRODUCT_H_W_PAPER || rval == PRODUCT_XIAO_S3) {
 	#elif PLATFORM == PLATFORM_NRF52
 	if (rval == PRODUCT_RAK4631 || rval == PRODUCT_HELTEC_T114 || rval == PRODUCT_OPENCOM_XL || rval == PRODUCT_TECHO || rval == PRODUCT_HMBRW) {
 	#else
@@ -1563,6 +1572,8 @@ bool eeprom_model_valid() {
 	if (model == MODEL_C4 || model == MODEL_C9) {
 	#elif BOARD_MODEL == BOARD_HELTEC32_V3
 	if (model == MODEL_C5 || model == MODEL_CA) {
+	#elif BOARD_MODEL == BOARD_HELTEC_WSL_V3
+	if (model == MODEL_CE || model == MODEL_CF) {
     #elif BOARD_MODEL == BOARD_H_W_PAPER
     if (model == MODEL_C8) {
     #elif BOARD_MODEL == BOARD_HELTEC_T114
@@ -1611,7 +1622,7 @@ bool eeprom_checksum_valid() {
         #endif
 		data[i] = byte;
 	}
-	
+
 	unsigned char *hash = MD5::make_hash(data, CHECKSUMMED_SIZE);
 	bool checksum_valid = true;
 	for (uint8_t i = 0; i < 16; i++) {

@@ -7,7 +7,7 @@
 #include "Radio.hpp"
 #include "src/misc/ModemISR.h"
 
-#if PLATFORM == PLATFORM_ESP32 
+#if PLATFORM == PLATFORM_ESP32
   #if defined(ESP32) and !defined(CONFIG_IDF_TARGET_ESP32S3)
     #include "soc/rtc_wdt.h"
   #endif
@@ -112,7 +112,7 @@ sx126x::sx126x(uint8_t index, SPIClass* spi, bool tcxo, bool dio2_as_rf_switch, 
 bool sx126x::preInit() {
   pinMode(_ss, OUTPUT);
   digitalWrite(_ss, HIGH);
-  
+
   // todo: check if this change causes issues on any platforms
   #if MCU_VARIANT == MCU_ESP32
   if (_sclk != -1 && _miso != -1 && _mosi != -1 && _ss != -1) {
@@ -282,11 +282,11 @@ void sx126x::setModulationParams(uint8_t sf, uint8_t bw, uint8_t cr, int ldro) {
 
   buf[0] = sf;
   buf[1] = bw;
-  buf[2] = cr; 
+  buf[2] = cr;
   // low data rate toggle
   buf[3] = ldro;
   // unused params in LoRa mode
-  buf[4] = 0x00; 
+  buf[4] = 0x00;
   buf[5] = 0x00;
   buf[6] = 0x00;
   buf[7] = 0x00;
@@ -305,11 +305,11 @@ void sx126x::setPacketParams(uint32_t preamble, uint8_t headermode, uint8_t leng
   buf[3] = length;
   buf[4] = crc;
   // standard IQ setting (no inversion)
-  buf[5] = 0x00; 
+  buf[5] = 0x00;
   // unused params
-  buf[6] = 0x00; 
-  buf[7] = 0x00; 
-  buf[8] = 0x00; 
+  buf[6] = 0x00;
+  buf[7] = 0x00;
+  buf[8] = 0x00;
 
   executeOpcode(OP_PACKET_PARAMS_6X, buf, 9);
 }
@@ -625,19 +625,19 @@ void sx126x::onReceive(void(*callback)(uint8_t, int))
     uint8_t buf[8];
 
     // set irq masks, enable all
-    buf[0] = 0xFF; 
+    buf[0] = 0xFF;
     buf[1] = 0xFF;
 
     // set dio0 masks
     buf[2] = 0x00;
-    buf[3] = IRQ_RX_DONE_MASK_6X; 
+    buf[3] = IRQ_RX_DONE_MASK_6X;
 
     // set dio1 masks
-    buf[4] = 0x00; 
+    buf[4] = 0x00;
     buf[5] = 0x00;
 
     // set dio2 masks
-    buf[6] = 0x00; 
+    buf[6] = 0x00;
     buf[7] = 0x00;
 
     executeOpcode(OP_SET_IRQ_FLAGS_6X, buf, 8);
@@ -686,7 +686,7 @@ void sx126x::standby()
   // STDBY_RC
   byte = MODE_STDBY_RC_6X;
   }
-  executeOpcode(OP_STANDBY_6X, &byte, 1); 
+  executeOpcode(OP_STANDBY_6X, &byte, 1);
 }
 
 void sx126x::sleep()
@@ -697,7 +697,7 @@ void sx126x::sleep()
 
 void sx126x::enableTCXO() {
   if (_tcxo) {
-    #if BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL || BOARD_MODEL == BOARD_HELTEC32_V3 || BOARD_MODEL == BOARD_XIAO_ESP32S3
+    #if BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL || BOARD_MODEL == BOARD_HELTEC32_V3 || BOARD_MODEL == BOARD_HELTEC_WSL_V3 || BOARD_MODEL == BOARD_XIAO_ESP32S3
       uint8_t buf[4] = {MODE_TCXO_3_3V_6X, 0x00, 0x00, 0xFF};
     #elif BOARD_MODEL == BOARD_TBEAM
       uint8_t buf[4] = {MODE_TCXO_1_8V_6X, 0x00, 0x00, 0xFF};
@@ -725,7 +725,7 @@ void sx126x::disableTCXO() { }
 
 void sx126x::setTxPower(int level, int outputPin) {
     // currently no low power mode for SX1262 implemented, assuming PA boost
-    
+
     // WORKAROUND - Better Resistance of the SX1262 Tx to Antenna Mismatch, see DS_SX1261-2_V1.2 datasheet chapter 15.2
     // RegTxClampConfig = @address 0x08D8
     writeRegister(0x08D8, readRegister(0x08D8) | (0x0F << 1));
@@ -750,7 +750,7 @@ void sx126x::setTxPower(int level, int outputPin) {
 
     tx_buf[0] = level;
     tx_buf[1] = 0x02; // PA ramping time - 40 microseconds
-    
+
     executeOpcode(OP_TX_PARAMS_6X, tx_buf, 2);
 }
 
@@ -1293,18 +1293,18 @@ void sx127x::onReceive(void(*callback)(uint8_t, int)) {
   if (callback) {
     pinMode(_dio0, INPUT);
     writeRegister(REG_DIO_MAPPING_1_7X, 0x00);
-    
+
     #ifdef SPI_HAS_NOTUSINGINTERRUPT
       _spiModem->usingInterrupt(digitalPinToInterrupt(_dio0));
     #endif
-    
+
     // make function available
     extern void (*onIntRise[INTERFACE_COUNT])(void);
 
     attachInterrupt(digitalPinToInterrupt(_dio0), onIntRise[_index], RISING);
   } else {
     detachInterrupt(digitalPinToInterrupt(_dio0));
-    
+
     #ifdef SPI_HAS_NOTUSINGINTERRUPT
       _spiModem->notUsingInterrupt(digitalPinToInterrupt(_dio0));
     #endif
@@ -1428,7 +1428,7 @@ uint8_t sx127x::getCodingRate4()
     return _cr + 4;
 }
 
-void sx127x::setPreambleLength(long length) { 
+void sx127x::setPreambleLength(long length) {
   _preambleLength = length;
   writeRegister(REG_PREAMBLE_MSB_7X, (uint8_t)(length >> 8));
   writeRegister(REG_PREAMBLE_LSB_7X, (uint8_t)(length >> 0));
@@ -1555,7 +1555,7 @@ bool sx128x::preInit() {
   pinMode(_ss, OUTPUT);
   // set SS high
   digitalWrite(_ss, HIGH);
-  
+
   // todo: check if this change causes issues on any platforms
   #if MCU_VARIANT == MCU_ESP32
   if (_sclk != -1 && _miso != -1 && _mosi != -1 && _ss != -1) {
@@ -1731,11 +1731,11 @@ void sx128x::setModulationParams(uint8_t sf, uint8_t bw, uint8_t cr) {
 
   buf[0] = sf << 4;
   buf[1] = bw;
-  buf[2] = cr; 
+  buf[2] = cr;
   executeOpcode(OP_MODULATION_PARAMS_8X, buf, 3);
 
-  if (sf <= 6) { writeRegister(0x925, 0x1E); } 
-  else if (sf <= 8) { writeRegister(0x925, 0x37); } 
+  if (sf <= 6) { writeRegister(0x925, 0x1E); }
+  else if (sf <= 8) { writeRegister(0x925, 0x37); }
   else if (sf >= 9) { writeRegister(0x925, 0x32); }
   writeRegister(0x093C, 0x1);
 }
@@ -1770,10 +1770,10 @@ void sx128x::setPacketParams(uint32_t target_preamble, uint8_t headermode, uint8
   buf[2] = length;
   buf[3] = crc;
   // standard IQ setting (no inversion)
-  buf[4] = 0x40; 
+  buf[4] = 0x40;
   // unused params
-  buf[5] = 0x00; 
-  buf[6] = 0x00; 
+  buf[5] = 0x00;
+  buf[6] = 0x00;
 
   executeOpcode(OP_PACKET_PARAMS_8X, buf, 7);
 
@@ -1857,7 +1857,7 @@ int sx128x::beginPacket(int implicitHeader)
   // put in standby mode
   standby();
 
-  if (implicitHeader) { implicitHeaderMode(); } 
+  if (implicitHeader) { implicitHeaderMode(); }
   else { explicitHeaderMode(); }
 
   _payloadLength = 0;
@@ -2055,7 +2055,7 @@ void sx128x::onReceive(void(*callback)(uint8_t, int))
       uint8_t buf[8];
 
       // set irq masks, enable all
-      buf[0] = 0xFF; 
+      buf[0] = 0xFF;
       buf[1] = 0xFF;
 
       // On the SX1280, no RxDone IRQ is generated if a packet is received with
@@ -2067,14 +2067,14 @@ void sx128x::onReceive(void(*callback)(uint8_t, int))
       // header.
       // set dio0 masks
       buf[2] = 0x00;
-      buf[3] = IRQ_RX_DONE_MASK_8X | IRQ_HEADER_ERROR_MASK_8X; 
+      buf[3] = IRQ_RX_DONE_MASK_8X | IRQ_HEADER_ERROR_MASK_8X;
 
       // set dio1 masks
-      buf[4] = 0x00; 
+      buf[4] = 0x00;
       buf[5] = 0x00;
 
       // set dio2 masks
-      buf[6] = 0x00; 
+      buf[6] = 0x00;
       buf[7] = 0x00;
 
       executeOpcode(OP_SET_IRQ_FLAGS_8X, buf, 8);
@@ -2128,7 +2128,7 @@ void sx128x::standby()
           // STDBY_RC
           byte = 0x00;
     }
-      executeOpcode(OP_STANDBY_8X, &byte, 1); 
+      executeOpcode(OP_STANDBY_8X, &byte, 1);
 }
 
 void sx128x::sleep()
@@ -2251,7 +2251,7 @@ void sx128x::setTxPower(int level, int outputPin) {
 
     #elif BOARD_VARIANT == MODEL_AC
     // T3S3 SX1280 PA
-        if (level > 20) { level = 20; } 
+        if (level > 20) { level = 20; }
         else if (level < 0) { level = 0; }
 
         _txp = level;
@@ -2398,7 +2398,7 @@ uint32_t sx128x::getSignalBandwidth()
       case 0x18: return 812.5E3;
       case 0x0A: return 1625E3;
   }
-  
+
   return 0;
 }
 
@@ -2413,9 +2413,9 @@ void sx128x::optimizeModemSensitivity(){
 
 void sx128x::setSignalBandwidth(uint32_t sbw)
 {
-      if (sbw <= 203.125E3) { _bw = 0x34; } 
-      else if (sbw <= 406.25E3) { _bw = 0x26; } 
-      else if (sbw <= 812.5E3) { _bw = 0x18; } 
+      if (sbw <= 203.125E3) { _bw = 0x34; }
+      else if (sbw <= 406.25E3) { _bw = 0x26; }
+      else if (sbw <= 812.5E3) { _bw = 0x18; }
       else { _bw = 0x0A; }
 
       setModulationParams(_sf, _bw, _cr);
