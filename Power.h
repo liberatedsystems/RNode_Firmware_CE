@@ -148,6 +148,23 @@
   bool bat_voltage_dropping = false;
   float bat_delay_v = 0;
   float bat_state_change_v = 0;
+#elif BOARD_MODEL == BOARD_HELTEC_MESHP
+  #define BAT_V_MIN       3.15
+  #define BAT_V_MAX       4.165
+  #define BAT_V_CHG       4.48
+  #define BAT_V_FLOAT     4.33
+  #define BAT_SAMPLES     7
+  const uint8_t pin_vbat = 29; //29;   // BAT_ADC controlled by pin_ctrl to measure bat V
+  const uint8_t pin_ctrl = 34; //18;
+  float bat_p_samples[BAT_SAMPLES];
+  float bat_v_samples[BAT_SAMPLES];
+  uint8_t bat_samples_count = 0;
+  int bat_discharging_samples = 0;
+  int bat_charging_samples = 0;
+  int bat_charged_samples = 0;
+  bool bat_voltage_dropping = false;
+  float bat_delay_v = 0;
+  float bat_state_change_v = 0;  
 #elif BOARD_MODEL == BOARD_TECHO
   #define BAT_V_MIN       3.15
   #define BAT_V_MAX       4.16
@@ -174,7 +191,7 @@ uint8_t pmu_rc = 0;
 void kiss_indicate_battery();
 
 void measure_battery() {
-  #if BOARD_MODEL == BOARD_RNODE_NG_21 || BOARD_MODEL == BOARD_LORA32_V2_1 || BOARD_MODEL == BOARD_HELTEC32_V3 || BOARD_MODEL == BOARD_TDECK || BOARD_MODEL == BOARD_T3S3 || BOARD_MODEL == BOARD_HELTEC_T114 || BOARD_MODEL == BOARD_TECHO
+  #if BOARD_MODEL == BOARD_RNODE_NG_21 || BOARD_MODEL == BOARD_LORA32_V2_1 || BOARD_MODEL == BOARD_HELTEC32_V3 || BOARD_MODEL == BOARD_TDECK || BOARD_MODEL == BOARD_T3S3 || BOARD_MODEL == BOARD_HELTEC_T114 || BOARD_MODEL == BOARD_HELTEC_MESHP|| BOARD_MODEL == BOARD_TECHO
     battery_installed = true;
     battery_indeterminate = true;
 
@@ -184,6 +201,8 @@ void measure_battery() {
       float battery_measurement = (float)(analogRead(pin_vbat)) / 4095.0*6.7828;
     #elif BOARD_MODEL == BOARD_HELTEC_T114
       float battery_measurement = (float)(analogRead(pin_vbat)) * 0.017165;
+    #elif BOARD_MODEL == BOARD_HELTEC_MESHP
+      float battery_measurement = (float)(analogRead(pin_vbat)) * 0.017165;  
     #elif BOARD_MODEL == BOARD_TECHO
       float battery_measurement = (float)(analogRead(pin_vbat)) * 0.007067;
     #else
@@ -199,7 +218,7 @@ void measure_battery() {
     }
 
     if (battery_ready) {
-
+      
       battery_percent = 0;
       for (uint8_t bi = 0; bi < BAT_SAMPLES; bi++) {
         battery_percent += bat_p_samples[bi];
@@ -211,7 +230,6 @@ void measure_battery() {
         battery_voltage += bat_v_samples[bi];
       }
       battery_voltage = battery_voltage/BAT_SAMPLES;
-      
       if (bat_delay_v == 0) bat_delay_v = battery_voltage;
       if (bat_state_change_v == 0) bat_state_change_v = battery_voltage;
       if (battery_percent > 100.0) battery_percent = 100.0;
@@ -441,7 +459,7 @@ bool init_pmu() {
     pinMode(pin_ctrl,OUTPUT);
     digitalWrite(pin_ctrl, LOW);
     return true;
-  #elif BOARD_MODEL == BOARD_HELTEC_T114
+  #elif BOARD_MODEL == BOARD_HELTEC_T114 || BOARD_MODEL == BOARD_HELTEC_MESHP
     pinMode(pin_ctrl,OUTPUT);
     digitalWrite(pin_ctrl, HIGH);
     return true;

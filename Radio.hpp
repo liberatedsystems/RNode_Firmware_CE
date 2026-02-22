@@ -192,7 +192,8 @@ public:
     void setRadioLock(bool lock) { _radio_locked = lock; };
     bool getRadioLock() { return _radio_locked; };
     void setRadioOnline(bool online) { _radio_online = online; };
-    bool getRadioOnline() { return _radio_online; };
+    
+    bool getRadioOnline() {return _radio_online; };
     void setSTALock(float at) { _st_airtime_limit = at; };
     float getSTALock() { return _st_airtime_limit; };
     void setLTALock(float at) { _lt_airtime_limit = at; };

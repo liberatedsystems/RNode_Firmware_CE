@@ -193,7 +193,7 @@ There is no difference between `PA_OUTPUT_PA_BOOST_PIN` and `PA_OUTPUT_RFO_PIN` 
 
 For `eeprom_product_valid()` you simply need to add your product value to the relevant if statment depending on what MCU variant your board uses. For example:
 ```
-if (rval == PRODUCT_RAK4631 || rval == PRODUCT_HELTEC_T114 || rval == PRODUCT_OPENCOM_XL || rval == PRODUCT_TECHO || rval == PRODUCT_MY_WICKED_BOARD || rval == PRODUCT_HMBRW) {
+if (rval == PRODUCT_RAK4631 || rval == PRODUCT_HELTEC_T114 || rval == PRODUCT_HELTEC_MESHP || rval == PRODUCT_OPENCOM_XL || rval == PRODUCT_TECHO || rval == PRODUCT_MY_WICKED_BOARD || rval == PRODUCT_HMBRW) {
 ```
 
 Finally, for `eeprom_model_valid`, you must add an elif with the correct model number for the board, e.g:

@@ -12,7 +12,6 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
 #include "Radio.hpp"
 #include "Config.h"
 
@@ -134,6 +133,12 @@ uint8_t boot_vector = 0x00;
   		pinMode(PIN_VEXT_EN, OUTPUT);
   		digitalWrite(PIN_VEXT_EN, HIGH);
   	#endif
+  	#if BOARD_MODEL == BOARD_HELTEC_MESHP
+  		// Enable vext power supply to neopixel
+  		pinMode(PIN_VEXT_EN, OUTPUT);
+  		digitalWrite(PIN_VEXT_EN, HIGH);
+  	#endif
+
 
     #if MCU_VARIANT == MCU_NRF52
       if (eeprom_read(eeprom_addr(ADDR_CONF_PSET)) == CONF_OK_BYTE) {
@@ -354,6 +359,14 @@ uint8_t boot_vector = 0x00;
     void led_tx_off() { digitalWrite(pin_led_tx, HIGH); }
 		void led_id_on()  { }
 		void led_id_off() { }
+	#elif BOARD_MODEL == BOARD_HELTEC_MESHP 
+    // no leds on the MEsh Pocket
+    void led_rx_on()  { digitalWrite(pin_led_rx, LOW); }
+    void led_rx_off() {	digitalWrite(pin_led_rx, HIGH); }
+    void led_tx_on()  { digitalWrite(pin_led_tx, LOW); }
+    void led_tx_off() { digitalWrite(pin_led_tx, HIGH); }
+		void led_id_on()  { }
+		void led_id_off() { }	
   #elif BOARD_MODEL == BOARD_TECHO
 		void led_rx_on()  { digitalWrite(pin_led_rx, LED_ON); }
 		void led_rx_off() {	digitalWrite(pin_led_rx, LED_OFF); }
@@ -730,7 +743,6 @@ void led_indicate_not_ready() {
     }
 #endif
 
-
 bool interface_bitrate_cmp(RadioInterface* p, RadioInterface* q) {
     long p_bitrate = p->getBitrate();
     long q_bitrate = q->getBitrate();
@@ -741,14 +753,16 @@ bool interface_bitrate_cmp(RadioInterface* p, RadioInterface* q) {
 void sort_interfaces() {
     std::sort(std::begin(interface_obj_sorted), std::end(interface_obj_sorted), interface_bitrate_cmp);
 }
-
+uint8_t byteOLD;
 void serial_write(uint8_t byte) {
 	#if HAS_BLUETOOTH || HAS_BLE == true
 		if (bt_state != BT_STATE_CONNECTED) {
 			Serial.write(byte);
+
 		} else {
+		
 			SerialBT.write(byte);
-      #if MCU_VARIANT == MCU_NRF52 && HAS_BLE
+			#if MCU_VARIANT == MCU_NRF52 && HAS_BLE
 	      // This ensures that the TX buffer is flushed after a frame is queued in serial.
 	      // serial_in_frame is used to ensure that the flush only happens at the end of the frame
 	      if (serial_in_frame && byte == FEND) { SerialBT.flushTXD(); serial_in_frame = false; }
@@ -762,8 +776,8 @@ void serial_write(uint8_t byte) {
 
 void escaped_serial_write(uint8_t byte) {
 	if (byte == FEND) { serial_write(FESC); byte = TFEND; }
-    if (byte == FESC) { serial_write(FESC); byte = TFESC; }
-    serial_write(byte);
+  if (byte == FESC) { serial_write(FESC); byte = TFESC; }
+  serial_write(byte);
 }
 
 void kiss_indicate_reset() {
@@ -1277,6 +1291,10 @@ void setTXPower(RadioInterface* radio, int txp) {
     if (model == MODEL_C7) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
     if (model == MODEL_CA) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
 
+    if (model == MODEL_CD) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
+    if (model == MODEL_CE) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
+
+
     if (model == MODEL_D4) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
     if (model == MODEL_D9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
 
@@ -1517,7 +1535,7 @@ bool eeprom_product_valid() {
 	#if PLATFORM == PLATFORM_ESP32
 	if (rval == PRODUCT_RNODE || rval == BOARD_RNODE_NG_20 || rval == BOARD_RNODE_NG_21 || rval == PRODUCT_HMBRW || rval == PRODUCT_TBEAM || rval == PRODUCT_T32_10 || rval == PRODUCT_T32_20 || rval == PRODUCT_T32_21 || rval == PRODUCT_H32_V2 || rval == PRODUCT_H32_V3 || rval == PRODUCT_TDECK_V1 || rval == PRODUCT_TBEAM_S_V1 || rval == PRODUCT_H_W_PAPER || rval == PRODUCT_XIAO_S3) {
 	#elif PLATFORM == PLATFORM_NRF52
-	if (rval == PRODUCT_RAK4631 || rval == PRODUCT_HELTEC_T114 || rval == PRODUCT_OPENCOM_XL || rval == PRODUCT_TECHO || rval == PRODUCT_HMBRW) {
+	if (rval == PRODUCT_RAK4631 || rval == PRODUCT_HELTEC_T114 || rval == PRODUCT_HELTEC_MESHP || rval == PRODUCT_OPENCOM_XL || rval == PRODUCT_TECHO || rval == PRODUCT_HMBRW) {
 	#else
 	if (false) {
 	#endif
@@ -1567,6 +1585,8 @@ bool eeprom_model_valid() {
     if (model == MODEL_C8) {
     #elif BOARD_MODEL == BOARD_HELTEC_T114
     if (model == MODEL_C6 || model == MODEL_C7) {
+	#elif BOARD_MODEL == BOARD_HELTEC_MESHP
+    if (model == MODEL_CD || model == MODEL_CE) {
     #elif BOARD_MODEL == BOARD_RAK4631
     if (model == MODEL_11 || model == MODEL_12 || model == MODEL_13 || model == MODEL_14) {
     #elif BOARD_MODEL == BOARD_OPENCOM_XL

@@ -12,7 +12,6 @@
 
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
 #include "Interfaces.h"
 #include "ROM.h"
 
@@ -117,6 +116,12 @@
   #define MODEL_C6            0xC6 // Heltec Mesh Node T114, 470-510 MHz
   #define MODEL_C7            0xC7 // Heltec Mesh Node T114, 863-928 MHz
   #define MODEL_CB            0xCB // Heltec Mesh Node T114, 863-928 MHz + GPS
+
+  #define PRODUCT_HELTEC_MESHP 0xD2 // Heltec Mesh Node MeshPocket with a T114
+  #define BOARD_HELTEC_MESHP  0x46
+  #define MODEL_CD            0xCD // Heltec Mesh Node MeshPocket, 470-510 MHz
+  #define MODEL_CE            0xCE // Heltec Mesh Node MeshPocket, 863-928 MHz
+ 
 
   #define PRODUCT_TECHO       0x15 // LilyGO T-Echo devices
   #define BOARD_TECHO         0x44
@@ -1378,6 +1383,8 @@
               17, // pin_busy
               20, // pin_dio
               25, // pin_reset
+Search
+
               -1, // pin_txen
               -1, // pin_rxen
               -1  // pin_tcxo_enable
@@ -1385,11 +1392,103 @@
       };
 
       #if BOARD_VARIANT == MODEL_CB
-      #define HAS_GPS true
-      #define GPS_BAUD_RATE 9600
-      #define PIN_GPS_RX 37
-      #define PIN_GPS_TX 39 
+        #define HAS_GPS true
+        #define GPS_BAUD_RATE 9600
+        #define PIN_GPS_RX 37
+        #define PIN_GPS_TX 39 
       #endif
+
+    #elif BOARD_MODEL == BOARD_HELTEC_MESHP
+       
+      #define HAS_EEPROM false
+      #define HAS_DISPLAY true
+      #define DISPLAY EINK_BW
+      #define DISPLAY_SCALE_OVERRIDE true
+      #define DISPLAY_SCALE 1.90625
+      #define DISPLAY_MODEL GxEPD2_213_B74   //meshtastic uses B74  
+      // MUST have the updated GxEPD2 library from here https://github.com/meshtastic/GxEPD2#inkhud 
+      #define HAS_BLUETOOTH false
+      #define HAS_BLE true
+      #define HAS_CONSOLE false
+      #define HAS_PMU true
+      #define HAS_NP true
+      #define HAS_SD false
+      #define HAS_TCXO true
+      #define HAS_BUSY true
+      #define HAS_INPUT true
+      #define HAS_SLEEP true
+      #define CONFIG_UART_BUFFER_SIZE 6144
+      #define CONFIG_QUEUE_SIZE 6144
+      #define CONFIG_QUEUE_MAX_LENGTH 200
+      #define EEPROM_SIZE 296
+      #define EEPROM_OFFSET EEPROM_SIZE-EEPROM_RESERVED
+      #define BLE_MANUFACTURER "Heltec"
+      #define BLE_MODEL "T114"
+
+      #define PIN_T114_ADC_EN 6
+      #define PIN_VEXT_EN 21
+
+      // LED
+      #define LED_T114_GREEN 13
+      #define PIN_T114_LED 35
+      #define NP_M 1
+      const int pin_np = PIN_T114_LED;
+
+      // pins for buttons on Heltec Mesh Pocket
+      const int pin_btn_usr1 = 42;
+
+      // no LED on Mesh pocket
+      const int pin_led_rx = 35;
+      const int pin_led_tx = 35;
+
+
+     /*E-Ink display driver
+    - SSD1680
+    - Manufacturer: WISEVAST
+    - Model: LCMEN21R13ECC1
+    - Type: E-Ink display
+    - Size: 2.13 inch
+    - Resolution: 122px x 255px
+    - power is connected direct to the 3v3 line it sleeps via a SPI command
+       */
+      const int pin_disp_cs    = 24;
+      const int pin_disp_dc    = 31;
+      const int pin_disp_reset = 36;
+      const int pin_disp_busy  = 38;
+      const int pin_disp_sck   = 22;
+      const int pin_disp_mosi  = 20;           
+      const int pin_disp_miso  = -1;
+     //BD the eink power is connected direct to the 3v3 line it sleeps via a SPI command
+      const int pin_disp_en = -1;  
+    
+      #define INTERFACE_COUNT 1
+
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+                    // SX1262
+          {
+              false, // DEFAULT_SPI
+              true, // HAS_TCXO
+              true  // DIO2_AS_RF_SWITCH
+          }
+      };
+      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+                  // SX1262
+          {
+              26, // pin_ss
+              4, //22,       //4 // pin_sclk      // the schatic shos pin 4 but meshtastic code uses pin 22 shared with eink display
+              5, //20,     // 5, // pin_mosi   // the schatic shos pin 5 but meshtastic code uses pin 20 shared with eink display
+              41, // pin_miso
+              15, // pin_busy
+              16, // pin_dio
+              12 // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
+
+
     #else
       #error An unsupported nRF board was selected. Cannot compile RNode firmware.
     #endif

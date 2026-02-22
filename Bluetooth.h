@@ -1,5 +1,4 @@
 // Copyright (C) 2024, Mark Qvist
-
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
@@ -173,7 +172,8 @@ char bt_devname[11];
     void bt_flush() { if (bt_state == BT_STATE_CONNECTED) { SerialBT.flush(); } }
 
     void bt_start() {
-      // Serial.println("BT start");
+      
+       //Serial.println("BT start");
       display_unblank();
       if (bt_state == BT_STATE_OFF) {
         bt_state = BT_STATE_ON;
@@ -193,6 +193,7 @@ char bt_devname[11];
     }
 
     bool bt_init() {
+      
       // Serial.println("BT init");
       bt_state = BT_STATE_OFF;
       if (bt_setup_hw()) {
@@ -297,7 +298,8 @@ char bt_devname[11];
 
     void bt_connect_callback(BLEServer *server) {
       uint16_t conn_id = server->getConnId();
-      // Serial.printf("Connected: %d\n", conn_id);
+      
+      //Serial.printf("Connected: %d\n", conn_id);
       display_unblank();
       ble_authenticated = false;
       if (bt_state != BT_STATE_PAIRING) { bt_state = BT_STATE_CONNECTED; }
@@ -446,13 +448,27 @@ char bt_devname[11];
     }
   }
 
-  bool bt_passkey_callback(uint16_t conn_handle, uint8_t const passkey[6], bool match_request) {
-    // Serial.println("Passkey callback");
-    if (bt_allow_pairing) {
-      return true;
-    }
-    return false;
+bool bt_passkey_callback(uint16_t conn_handle, uint8_t const passkey[6], bool match_request) {
+  // Bluefruit sends the 6-digit passkey as ASCII digits.
+  // Keep bt_ssp_pin & pairing_pin in sync so both console and display
+  // show the same code.
+
+  uint32_t pin = 0;
+  for (int i = 0; i < 6; i++) {
+    pin = pin * 10 + (uint32_t)(passkey[i] - '0');
   }
+
+  bt_ssp_pin   = pin;
+  pairing_pin  = pin;
+  kiss_indicate_btpin();   // rnodeconf already listens for this
+
+  // Wake the display so the PIN is visible
+  display_unblank();
+
+  // Only accept if we’re in pairing mode and this is a match request
+  return bt_allow_pairing;
+}
+
 
   void bt_connect_callback(uint16_t conn_handle) {
     // Serial.println("Connect callback");
@@ -500,8 +516,8 @@ char bt_devname[11];
       Bluefruit.autoConnLed(false);
       if (Bluefruit.begin()) {
         uint32_t pin = bt_get_passkey();
-        char pin_char[6];
-        sprintf(pin_char,"%lu", pin);
+        char pin_char[7];
+        snprintf(pin_char, sizeof(pin_char), "%06lu", (unsigned long)pin);
 
         Bluefruit.setTxPower(8);    // Check bluefruit.h for supported values
         Bluefruit.Security.setIOCaps(true, false, false); // display, yes; yes / no, no; keyboard, no
@@ -585,20 +601,30 @@ char bt_devname[11];
     }
   }
 
-  void bt_enable_pairing() {
+ void bt_enable_pairing() {
     // Serial.println("BT enable pairing");
-    if (bt_state == BT_STATE_OFF) bt_start();
+    display_unblank();
 
-    uint32_t pin = bt_get_passkey();
-    char pin_char[6];
-    sprintf(pin_char,"%lu", pin);
+    if (bt_state == BT_STATE_OFF) {
+        bt_start();
+    }
+
+    uint32_t pin = bt_get_passkey();   // also sets bt_ssp_pin via bt_update_passkey()
+
+    char pin_char[7];                  // 6 digits + '\0'
+    snprintf(pin_char, sizeof(pin_char), "%06lu", (unsigned long)pin);
+
     Bluefruit.Security.setPIN(pin_char);
 
-    bt_allow_pairing = true;
+    bt_allow_pairing   = true;
     bt_pairing_started = millis();
-    bt_state = BT_STATE_PAIRING;
+    bt_state           = BT_STATE_PAIRING;
+
+    // Tell rnodeconf / host immediately
     kiss_indicate_btpin();
-  }
+}
+
+
 
   void bt_debond_all() { }
 
