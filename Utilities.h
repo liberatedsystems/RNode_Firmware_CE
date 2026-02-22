@@ -361,7 +361,23 @@ uint8_t boot_vector = 0x00;
 		void led_tx_off() { digitalWrite(pin_led_tx, LED_OFF); }
 		void led_id_on()  { }
 		void led_id_off() { }
-	#endif
+  #elif BOARD_MODEL == BOARD_FAKETEC_V5
+    #if HAS_NP == true
+      void led_rx_on()  { npset(0, 0, 255); }
+      void led_tx_on()  { npset(255, 0, 0); }
+      void led_rx_off() { npset(0, 0, 0); }
+      void led_tx_off() { npset(0, 0, 0); }
+      void led_id_on()  { npset(0, 255, 0); }
+      void led_id_off() { npset(0, 0, 0); }
+    #else
+      void led_rx_on()  { digitalWrite(pin_led_rx, HIGH); }
+      void led_tx_on()  { digitalWrite(pin_led_tx, HIGH); }
+      void led_rx_off() { digitalWrite(pin_led_rx, LOW); }
+      void led_tx_off() { digitalWrite(pin_led_tx, LOW); }
+      void led_id_on()  { digitalWrite(pin_led_rx, HIGH); }
+      void led_id_off() { digitalWrite(pin_led_rx, LOW); }
+    #endif
+  #endif
 #endif
 
 void hard_reset(void) {
