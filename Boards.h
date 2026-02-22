@@ -123,6 +123,11 @@
   #define MODEL_16            0x16 // T-Echo 433 MHz
   #define MODEL_17            0x17 // T-Echo 868/915 MHz
 
+  #define PRODUCT_FAKETEC     0xFA  // fakeTec devices (pick an unused hex value)
+  #define BOARD_FAKETEC_V5    0x55  // fakeTec v5 board (pick an unused hex value)
+  #define MODEL_F5            0xF5  // fakeTec v5, 868/915 MHz
+  #define MODEL_F4            0xF4  // fakeTec v5, 433 MHz
+
   #define PRODUCT_HMBRW       0xF0
   #define BOARD_HMBRW         0x32
   #define BOARD_HUZZAH32      0x34
@@ -1390,6 +1395,55 @@
       #define PIN_GPS_RX 37
       #define PIN_GPS_TX 39 
       #endif
+    #elif BOARD_MODEL == BOARD_FAKETEC_V5
+      #define HAS_EEPROM false
+      #define HAS_DISPLAY false        // no display on fakeTec v5
+      #define HAS_BLUETOOTH false
+      #define HAS_BLE true
+      #define HAS_CONSOLE false
+      #define HAS_PMU false            // no PMU, simple resistor divider
+      #define HAS_NP false             // no NeoPixel
+      #define HAS_SD false
+      #define HAS_TCXO false           // ProMicro uses crystal, not TCXO
+      #define HAS_BUSY true
+      #define HAS_INPUT false          // no user button on v5
+      #define HAS_SLEEP true
+      #define CONFIG_UART_BUFFER_SIZE 6144
+      #define CONFIG_QUEUE_SIZE 6144
+      #define CONFIG_QUEUE_MAX_LENGTH 200
+      #define EEPROM_SIZE 296
+      #define EEPROM_OFFSET EEPROM_SIZE-EEPROM_RESERVED
+      #define BLE_MANUFACTURER "fakeTec"
+      #define BLE_MODEL "fakeTec v5"
+      // LED - ProMicro has one LED on P0.15
+      const int pin_led_rx = 15;       // P0.15
+      const int pin_led_tx = 15;
+      const int pin_btn_usr1 = -1;
+      #define INTERFACE_COUNT 1
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
+        // SX126
+        {
+            false, // DEFAULT_SPI
+            false, // HAS_TCXO - crystal, not TCXO
+            true   // DIO2_AS_RF_SWITCH
+        }
+      };
+    const int8_t interface_pins[INTERFACE_COUNT][10] = {
+        // SX1262 - nRF52840 ProMicro pinout
+        {
+            45,  // pin_ss    - P1.13
+            43,  // pin_sclk  - P1.11
+            47,  // pin_mosi  - P1.15
+            2,   // pin_miso  - P0.02
+            29,  // pin_busy  - P0.29
+            10,  // pin_dio   - P0.10 (DIO1/IRQ)
+            9,   // pin_reset - P0.09
+            -1,  // pin_txen  - not used, DIO2 handles RF switch
+            17,  // pin_rxen  - P0.17 (DIO2)
+            -1   // pin_tcxo_enable - no TCXO
+        }
+    };
     #else
       #error An unsupported nRF board was selected. Cannot compile RNode firmware.
     #endif
