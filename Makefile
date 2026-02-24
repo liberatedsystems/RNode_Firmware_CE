@@ -283,7 +283,7 @@ upload-techo:
 
 upload-faketec_v5:
 	arduino-cli upload -p /dev/ttyACM0 --fqbn adafruit:nrf52:pca10056
-	@sleep 6
+	@sleep 2
 	rnodeconf /dev/ttyACM0 --firmware-hash $$(./partition_hashes from_device /dev/ttyACM0)
 
 release:  console-site spiffs-image $(shell grep ^release- Makefile | cut -d: -f1)

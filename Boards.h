@@ -1396,6 +1396,9 @@
       #define PIN_GPS_TX 39 
       #endif
     #elif BOARD_MODEL == BOARD_FAKETEC_V5
+      #define MAX_TX_POWER     22   // SX1262 hardware maximum
+      #define MIN_TX_POWER     0
+      #define TXPOWER_LIMIT    22
       #define HAS_EEPROM false
       #define HAS_DISPLAY false        // no display on fakeTec v5
       #define HAS_BLUETOOTH false
@@ -1422,11 +1425,10 @@
       #define INTERFACE_COUNT 1
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
       const bool interface_cfg[INTERFACE_COUNT][3] = {
-        // SX126
         {
-            false, // DEFAULT_SPI
-            false, // HAS_TCXO - crystal, not TCXO
-            true   // DIO2_AS_RF_SWITCH
+            false,  // DEFAULT_SPI
+            true,   // HAS_TCXO — correct for HT-RA62; set false for RA-01SH
+            true    // DIO2_AS_RF_SWITCH — required for RF switch activation on TX
         }
       };
     const int8_t interface_pins[INTERFACE_COUNT][10] = {
@@ -1436,12 +1438,12 @@
             43,  // pin_sclk  - P1.11
             47,  // pin_mosi  - P1.15
             2,   // pin_miso  - P0.02
-            29,  // pin_busy  - P0.29
-            10,  // pin_dio   - P0.10 (DIO1/IRQ)
+            10,  // pin_busy  - P0.10  ← was 29, swapped
+            29,  // pin_dio   - P0.29 (DIO1/IRQ)  ← was 10, swapped
             9,   // pin_reset - P0.09
-            -1,  // pin_txen  - not used, DIO2 handles RF switch
-            17,  // pin_rxen  - P0.17 (DIO2)
-            -1   // pin_tcxo_enable - no TCXO
+            -1,  // pin_txen  - not used (DIO2 handles RF switch)
+            -1,  // pin_rxen  - not used
+            -1   // pin_tcxo_enable - handled by DIO3 inside the module
         }
     };
     #else

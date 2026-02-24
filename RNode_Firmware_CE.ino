@@ -52,15 +52,15 @@
                 interface_pins[0][2]
                )
       };
-      #elif BOARD_MODEL == BOARD_FAKETEC_V5
-      #define INTERFACE_SPI
-      SPIClass interface_spi[1] = {
-        SPIClass(
-          NRF_SPIM3,
-          interface_pins[0][3],
-          interface_pins[0][1],
-          interface_pins[0][2]
-        )
+  #elif BOARD_MODEL == BOARD_FAKETEC_V5
+    #define INTERFACE_SPI
+    SPIClass interface_spi[1] = {
+            SPIClass(
+                NRF_SPIM3,
+                interface_pins[0][3],
+                interface_pins[0][1],
+                interface_pins[0][2]
+              )
       };
   #endif
 #endif
