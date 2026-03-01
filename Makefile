@@ -30,6 +30,7 @@ all: release
 clean:
 	-rm -rf ./build
 	-rm -f ./Release/rnode_firmware*
+	make -C test clean
 
 prep: prep-esp32 prep-nrf
 
@@ -542,3 +543,6 @@ release-faketec_v5:
 	cp build/adafruit.nrf52.pca10056/RNode_Firmware_CE.ino.hex build/rnode_firmware_faketec_v5.hex
 	adafruit-nrfutil dfu genpkg --dev-type 0x0052 --application build/rnode_firmware_faketec_v5.hex Release/rnode_firmware_faketec_v5.zip
 	rm -r build
+
+test:
+	make -C test all run

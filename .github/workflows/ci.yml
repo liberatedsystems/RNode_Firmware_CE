@@ -1,0 +1,65 @@
+name: RNode Firmware CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run C++ Tests
+      run: make -C test all run
+
+    - name: Run Python Tests
+      run: python3 test/test_rnode_python.py
+
+    - name: Setup Arduino CLI
+      uses: arduino/setup-arduino-cli@v1
+
+    - name: Install Arduino Cores and Libraries
+      run: |
+        arduino-cli config init
+        arduino-cli core update-index --config-file arduino-cli.yaml
+        # Install cores (this might take a while)
+        # Using the commands from Makefile prep-esp32 and prep-nrf but adapted for CI
+        arduino-cli core install esp32:esp32@2.0.17 --config-file arduino-cli.yaml
+        arduino-cli core install adafruit:nrf52 --config-file arduino-cli.yaml
+        arduino-cli core install rakwireless:nrf52 --config-file arduino-cli.yaml
+        arduino-cli core install Heltec_nRF52:Heltec_nRF52 --config-file arduino-cli.yaml
+        
+        # Install libraries
+        arduino-cli lib install "Adafruit SSD1306"
+        arduino-cli lib install "Adafruit SH110X"
+        arduino-cli lib install "Adafruit ST7735 and ST7789 Library"
+        arduino-cli lib install "Adafruit NeoPixel"
+        arduino-cli lib install "XPowersLib"
+        arduino-cli lib install "Crypto"
+        arduino-cli lib install "Adafruit GFX Library"
+        arduino-cli lib install "GxEPD2"
+        arduino-cli lib install "TinyGPSPlus"
+        
+        arduino-cli config set library.enable_unsafe_install true
+        arduino-cli lib install --git-url https://github.com/liamcottle/esp8266-oled-ssd1306#e16cee124fe26490cb14880c679321ad8ac89c95
+
+    - name: Build Firmware (Representative Boards)
+      run: |
+        # Building all might timeout, so we build a few representative ones
+        make firmware-tbeam
+        make firmware-rak4631
+        make firmware-lora32_v21
