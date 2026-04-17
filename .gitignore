@@ -8,3 +8,4 @@ Release/*.json
 Console/build
 build/*
 .vscode
+.idea/
