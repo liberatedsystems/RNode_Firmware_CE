@@ -52,6 +52,17 @@
                 interface_pins[0][2]
                )
       };
+  #elif BOARD_MODEL == BOARD_XIAO_NRF
+    #define INTERFACE_SPI
+    SPIClass interface_spi[1] = {
+            // SX1262
+            SPIClass(
+                NRF_SPIM1,
+                interface_pins[0][3],
+                interface_pins[0][1],
+                interface_pins[0][2]
+               )
+      };
   #endif
 #endif
 
@@ -179,13 +190,13 @@ void setup() {
     boot_seq();
   #endif
 
-  #if BOARD_MODEL != BOARD_RAK4631 && BOARD_MODEL != BOARD_HELTEC_T114 && BOARD_MODEL != BOARD_TECHO && BOARD_MODEL != BOARD_T3S3 && BOARD_MODEL != BOARD_TBEAM_S_V1 && BOARD_MODEL != BOARD_OPENCOM_XL
-  // Some boards need to wait until the hardware UART is set up before booting
-  // the full firmware. In the case of the RAK4631/TECHO, the line below will wait
-  // until a serial connection is actually established with a master. Thus, it
-  // is disabled on this platform.
-    while (!Serial);
-  #endif
+   #if BOARD_MODEL != BOARD_RAK4631 && BOARD_MODEL != BOARD_HELTEC_T114 && BOARD_MODEL != BOARD_TECHO && BOARD_MODEL != BOARD_XIAO_NRF && BOARD_MODEL != BOARD_T3S3 && BOARD_MODEL != BOARD_TBEAM_S_V1 && BOARD_MODEL != BOARD_OPENCOM_XL
+   // Some boards need to wait until the hardware UART is set up before booting
+   // the full firmware. In the case of the RAK4631/TECHO/XIAO_NRF, the line below will wait
+   // until a serial connection is actually established with a master. Thus, it
+   // is disabled on this platform.
+     while (!Serial);
+   #endif
 
   // Configure input and output pins
   #if HAS_INPUT

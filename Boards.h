@@ -123,6 +123,10 @@
   #define MODEL_16            0x16 // T-Echo 433 MHz
   #define MODEL_17            0x17 // T-Echo 868/915 MHz
 
+  #define PRODUCT_XIAO_NRF    0x18 // Seeed XIAO nRF52840 devices
+  #define BOARD_XIAO_NRF      0x53
+  #define MODEL_19            0x19 // XIAO nRF52840 with Wio-SX1262, 868 MHz
+
   #define PRODUCT_HMBRW       0xF0
   #define BOARD_HMBRW         0x32
   #define BOARD_HUZZAH32      0x34
@@ -1120,7 +1124,7 @@
       #define EEPROM_OFFSET EEPROM_SIZE-EEPROM_RESERVED
       #define HAS_EEPROM false
       #define HAS_SD false
-      #define HAS_DISPLAY true
+      #define HAS_DISPLAY false //Temporarially disable display code to not burn out the e-ink until the display code is fixed 
       #define DISPLAY EINK_BW
       #define DISPLAY_MODEL GxEPD2_154_D67
       #define BLE_MANUFACTURER "LilyGO"
@@ -1390,6 +1394,64 @@
       #define PIN_GPS_RX 37
       #define PIN_GPS_TX 39 
       #endif
+
+    #elif BOARD_MODEL == BOARD_XIAO_NRF
+      #define HAS_EEPROM false
+      #define HAS_DISPLAY false
+      #define HAS_BLUETOOTH false
+      #define HAS_BLE true
+      #define HAS_CONSOLE false
+      #define VALIDATE_FIRMWARE true
+      #define HAS_PMU true
+      #define HAS_NP false
+      #define HAS_SD false
+      #define CONFIG_UART_BUFFER_SIZE 6144
+      #define CONFIG_QUEUE_0_SIZE 6144
+      #define HAS_INPUT true
+      #define CONFIG_QUEUE_MAX_LENGTH 200
+      #define EEPROM_SIZE 296
+      #define EEPROM_OFFSET EEPROM_SIZE-EEPROM_RESERVED
+      #define BLE_MANUFACTURER "Seeed Studio"
+      #define BLE_MODEL "XIAO nRF52840"
+
+      #define INTERFACE_COUNT 1
+
+      // Wio-SX1262 for XIAO
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
+        const bool interface_cfg[INTERFACE_COUNT][3] = {
+                     // SX1262
+            {
+                false, // DEFAULT_SPI
+                true,  // HAS_TCXO
+                true   // DIO2_AS_RF_SWITCH
+            }
+        };
+       const int8_t interface_pins[INTERFACE_COUNT][10] = {
+                   // SX1262
+           {
+                4, // pin_ss (CS = D4)
+                8, // pin_sclk (SCK = D8)
+                10, // pin_mosi (MOSI = D10)
+                9, // pin_miso (MISO = D9)
+                3, // pin_busy (BUSY = D3)
+                1, // pin_dio (DIO1 = D1)
+                2, // pin_reset (RESET = D2)
+                -1, // pin_txen
+                5, // pin_rxen (RXEN = D5)
+                -1  // pin_tcxo_enable
+           }
+       };
+
+      const int pin_led_rx = 12; // LED_BLUE (from variant.h for non-Sense version)
+      const int pin_led_tx = 11; // LED_RED
+      const int pin_led_green = 13; // LED_GREEN
+
+      const int pin_btn_usr1 = 0;
+      const uint8_t pin_vbat = 31;
+
+      #define LED_ON LOW
+      #define LED_OFF HIGH
+
     #else
       #error An unsupported nRF board was selected. Cannot compile RNode firmware.
     #endif

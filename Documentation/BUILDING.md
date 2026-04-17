@@ -14,6 +14,7 @@ Firstly, figure out which MCU platform your supported board is based on. The tab
 | LilyGO LoRa32 v2.1 |  [Buy here](https://www.lilygo.cc/products/lora3) | SX1276/8 | ESP32 | With and without TCXO |
 | Heltec LoRa32 v2 | No link | SX1276/8 | ESP32 | Discontinued? |
 | Heltec LoRa32 v3 | [Buy here](https://heltec.org/project/wifi-lora-32-v3/) | SX1262 | ESP32 | 
+| Heltec T114 v2.0 | [Buy here](https://heltec.org/project/mesh-node-t114/) | SX1262 | ESP32 |
 | Homebrew ESP32 boards | | Any supported | ESP32 | This can be any board with an Adafruit Feather (or generic) ESP32 chip |
 
 ### ESP32
@@ -35,6 +36,7 @@ Next, you need to find the name of the target for your board. Please reference t
 | LilyGO LoRa32 v2.1 | `lora32_v21` |
 | Heltec LoRa32 v2 | `heltec32_v2` |
 | Heltec LoRa32 v3 | `heltec32_v3` | 
+| Heltec T114 v2.0 | `heltec_t114` or `heltec_t114_gps` |
 | Homebrew ESP32 boards | `genericesp32` |
 
 After you've ascertained the target for the board simply run the following to compile for the board:

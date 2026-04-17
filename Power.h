@@ -82,6 +82,24 @@
   int bat_charged_samples = 0;
   bool bat_voltage_dropping = false;
   float bat_delay_v = 0;
+#elif BOARD_MODEL == BOARD_XIAO_NRF
+  #include "nrfx_power.h"
+  #define BAT_V_MIN       3.15
+  #define BAT_V_MAX       4.2
+  #define BAT_V_FLOAT     4.22
+  #define BAT_SAMPLES     7
+  #define VBAT_MV_PER_LSB (0.73242188F) // 3.0V ADC range and 12 - bit ADC resolution = 3000mV / 4096
+  #define VBAT_DIVIDER_COMP (3.0)       // Compensation factor for the VBAT divider
+  #define VBAT_MV_PER_LSB_FIN (VBAT_DIVIDER_COMP * VBAT_MV_PER_LSB)
+  #define PIN_VBAT pin_vbat
+  float bat_p_samples[BAT_SAMPLES];
+  float bat_v_samples[BAT_SAMPLES];
+  uint8_t bat_samples_count = 0;
+  int bat_discharging_samples = 0;
+  int bat_charging_samples = 0;
+  int bat_charged_samples = 0;
+  bool bat_voltage_dropping = false;
+  float bat_delay_v = 0;
 #elif BOARD_MODEL == BOARD_T3S3
   #define BAT_V_MIN       3.15
   #define BAT_V_MAX       4.217
@@ -565,8 +583,8 @@ bool init_pmu() {
     // Set the time of pressing the button to turn off
     PMU->setPowerKeyPressOffTime(XPOWERS_POWEROFF_4S);
 
-    return true; 
-  #elif BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL
+    return true;
+  #elif BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL || BOARD_MODEL == BOARD_XIAO_NRF
     // board doesn't have PMU but we can measure batt voltage
 
     // prep ADC for reading battery level
