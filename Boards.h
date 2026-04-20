@@ -153,6 +153,20 @@
       #error "The firmware cannot be compiled for the selected MCU variant"
   #endif
 
+  #ifndef MODEM
+    #if BOARD_MODEL == BOARD_RAK4631
+      #define MODEM SX1262
+    #elif BOARD_MODEL == BOARD_GENERIC_NRF52
+      #define MODEM SX1262
+    #else
+      #define MODEM SX1276
+    #endif
+  #endif
+
+  #define LORA_PA_UNKNOWN  0x00
+  #define LORA_PA_GC1109   0x01
+  #define LORA_PA_KCT8103L 0x02
+
   #define HAS_DISPLAY false
   #define HAS_BLUETOOTH false
   #define HAS_BLE false
@@ -264,7 +278,7 @@
       };
 
       #elif BOARD_VARIANT == MODEL_E3 || BOARD_VARIANT == MODEL_E8
-      #define OCP_TUNED 0x18
+      #define OCP_TUNED 0x28
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
       const bool interface_cfg[INTERFACE_COUNT][3] = {
                     // SX1262
@@ -545,7 +559,7 @@
       #define PIN_WAKEUP GPIO_NUM_0
       #define WAKEUP_LEVEL 0
       #define INTERFACE_COUNT 1
-      #define OCP_TUNED 0x18
+      #define OCP_TUNED 0x28
 
       const int pin_btn_usr1 = 0;
 
@@ -658,8 +672,9 @@
       #define HAS_LORA_LNA true
       #define PIN_WAKEUP GPIO_NUM_0
       #define WAKEUP_LEVEL 0
-      #define OCP_TUNED 0x18
+      #define OCP_TUNED 0x28
       #define Vext GPIO_NUM_36
+      #define LORA_PA_MODEL LORA_PA_UNKNOWN;
 
       const int pin_btn_usr1 = 0;
 
@@ -681,14 +696,17 @@
 
       #define LORA_LNA_GAIN  17
       #define LORA_LNA_GVT   14
-      #define LORA_PA_GC1109 true
       #define LORA_PA_PWR_EN  7
-      #define LORA_PA_CSD     2
-      #define LORA_PA_CPS    46
+      #define LORA_PA_CSD     2 // Same pin on GC1109
+      #define LORA_PA_CPS    46 // Same pin on GC1109
+      #define LORA_PA_CTX     5 // Only used on KCT8103
 
       #define PA_MAX_OUTPUT  28
       #define PA_GAIN_POINTS 22
-      #define PA_GAIN_VALUES 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 10, 10, 9, 9, 8, 7
+      
+      #define LORA_LNA_KCT8103L_GAIN 21
+      const int PA_GC1109_VALUES[PA_GAIN_POINTS] =   {11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 10, 10,  9, 9, 8, 7};
+      const int PA_KCT8103L_VALUES[PA_GAIN_POINTS] = {13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 12, 12, 11, 11, 10, 9, 8, 7};
 
       const int pin_cs = 8;
       const int pin_busy = 13;
@@ -986,7 +1004,7 @@
 
     #elif BOARD_MODEL == BOARD_TBEAM_S_V1
       #define IS_ESP32S3 true
-      #define OCP_TUNED 0x18
+      #define OCP_TUNED 0x28
 
       #define HAS_DISPLAY true
       #define DISPLAY MONO_OLED
@@ -1475,7 +1493,7 @@
   // Default OCP value if not specified
   // in board configuration
   #ifndef OCP_TUNED
-    #define OCP_TUNED 0x18
+    #define OCP_TUNED 0x28
   #endif
 
   #ifndef NP_M

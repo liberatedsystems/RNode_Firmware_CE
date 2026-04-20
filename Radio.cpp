@@ -16,6 +16,14 @@
   #define ISR_VECT
 #endif
 
+#if HAS_LORA_PA
+  uint8_t lora_pa_model = LORA_PA_MODEL;
+#endif
+
+#if HAS_LORA_LNA
+  int lora_lna_gain = LORA_LNA_GAIN;
+#endif
+
 // SX126x registers
 #define OP_RF_FREQ_6X               0x86
 #define OP_SLEEP_6X                 0x84
@@ -400,7 +408,21 @@ int sx126x::begin()
   setPacketParams(_preambleLength, _implicitHeaderMode, _payloadLength, _crcMode);
 
   #if HAS_LORA_PA
-    #if LORA_PA_GC1109
+    if (lora_pa_model == LORA_PA_UNKNOWN) {
+      #if BOARD_MODEL == BOARD_HELTEC32_V4
+        pinMode(LORA_PA_PWR_EN, OUTPUT);
+        pinMode(LORA_PA_CSD, INPUT);
+        digitalWrite(LORA_PA_PWR_EN, HIGH); delay(5);
+        if (digitalRead(LORA_PA_CSD) == HIGH) {
+          lora_pa_model = LORA_PA_KCT8103L;
+          lora_lna_gain = LORA_LNA_KCT8103L_GAIN;
+        } else {
+          lora_pa_model = LORA_PA_GC1109;
+        }
+      #endif
+    }
+
+    if (lora_pa_model == LORA_PA_GC1109) {
       // Enable Vfem_ctl for supply to
       // PA power net.
       pinMode(LORA_PA_PWR_EN, OUTPUT);
@@ -420,7 +442,26 @@ int sx126x::begin()
       // On Heltec V4, the PA CTX pin is driven by
       // the SX1262 DIO2 pin directly, so we do not
       // need to manually raise this.
-    #endif
+
+    } else if (lora_pa_model == LORA_PA_KCT8103L) {
+      // Enable Vfem_ctl for supply to
+      // PA power net.
+      pinMode(LORA_PA_PWR_EN, OUTPUT);
+      digitalWrite(LORA_PA_PWR_EN, HIGH);
+
+      // Enable KCT8103L chip
+      pinMode(LORA_PA_CSD, OUTPUT);
+      digitalWrite(LORA_PA_CSD, HIGH);
+
+      // Enable receive LNA
+      pinMode(LORA_PA_CTX, OUTPUT);
+      digitalWrite(LORA_PA_CTX, LOW);
+
+      // On Heltec V4.3, the PA CPS pin
+      // is driven by the SX1262 DIO2
+      // pin directly, so we do not
+      // need to manually raise this.
+    }
   #endif
 
   _radio_online = true;
@@ -444,6 +485,18 @@ void sx126x::end()
 
 int sx126x::beginPacket(int implicitHeader)
 {
+  #if HAS_LORA_PA
+    if (lora_pa_model == LORA_PA_GC1109) {
+      // Enable PA CPS for transmit
+      // digitalWrite(LORA_PA_CPS, HIGH);
+      // Disabled since we're keeping it
+      // on permanently as long as the
+      // radio is powered up.
+    } else if (lora_pa_model == LORA_PA_KCT8103L) {
+      digitalWrite(LORA_PA_CTX, HIGH);
+    }
+  #endif
+
   standby();
 
   if (implicitHeader) {
@@ -536,7 +589,7 @@ int ISR_VECT sx126x::currentRssi() {
     executeOpcodeRead(OP_CURRENT_RSSI_6X, &byte, 1);
     int rssi = -(int(byte)) / 2;
     #if HAS_LORA_LNA
-      rssi -= LORA_LNA_GAIN;
+      rssi -= lora_lna_gain;
     #endif
     return rssi;
 }
@@ -552,7 +605,7 @@ int ISR_VECT sx126x::packetRssi(uint8_t pkt_snr_raw) {
     executeOpcodeRead(OP_PACKET_STATUS_6X, buf, 3);
     int pkt_rssi = -buf[0] / 2;
     #if HAS_LORA_LNA
-      pkt_rssi -= LORA_LNA_GAIN;
+      pkt_rssi -= lora_lna_gain;
     #endif
     return pkt_rssi;
 }
@@ -687,6 +740,20 @@ void sx126x::onReceive(void(*callback)(uint8_t, int))
 
 void sx126x::receive(int size)
 {
+    #if HAS_LORA_PA
+      if (lora_pa_model == LORA_PA_GC1109) {
+        // Disable PA CPS for receive
+        // digitalWrite(LORA_PA_CPS, LOW);
+        // That turned out to be a bad idea.
+        // The LNA goes wonky if it's toggled
+        // on and off too quickly. We'll keep
+        // it on permanently, as long as the
+        // radio is powered up.
+      } else if (lora_pa_model == LORA_PA_KCT8103L) {
+        digitalWrite(LORA_PA_CTX, LOW);
+      }
+    #endif
+
     if (size > 0) {
         implicitHeaderMode();
 
