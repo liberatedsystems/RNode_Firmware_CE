@@ -46,9 +46,20 @@
     SPIClass interface_spi[1] = {
             // SX1262
             SPIClass(
-                NRF_SPIM1, 
-                interface_pins[0][3], 
-                interface_pins[0][1], 
+                NRF_SPIM1,
+                interface_pins[0][3],
+                interface_pins[0][1],
+                interface_pins[0][2]
+               )
+      };
+  #elif BOARD_MODEL == BOARD_WIO_L1
+    #define INTERFACE_SPI
+    SPIClass interface_spi[1] = {
+            // SX1262
+            SPIClass(
+                NRF_SPIM2,
+                interface_pins[0][3],
+                interface_pins[0][1],
                 interface_pins[0][2]
                )
       };
@@ -137,6 +148,14 @@ void setup() {
       pinMode(PIN_VEXT_EN, OUTPUT);
       digitalWrite(PIN_VEXT_EN, HIGH);
       delay(100);
+    #elif BOARD_MODEL == BOARD_WIO_L1
+      pinMode(pin_btn_usr1, INPUT_PULLUP);
+      delay(50);
+      if (digitalRead(pin_btn_usr1) == LOW) {
+        InternalFS.begin();
+        InternalFS.format();
+        NVIC_SystemReset();
+      }
     #endif
 
 
@@ -179,7 +198,7 @@ void setup() {
     boot_seq();
   #endif
 
-  #if BOARD_MODEL != BOARD_RAK4631 && BOARD_MODEL != BOARD_HELTEC_T114 && BOARD_MODEL != BOARD_TECHO && BOARD_MODEL != BOARD_T3S3 && BOARD_MODEL != BOARD_TBEAM_S_V1 && BOARD_MODEL != BOARD_OPENCOM_XL
+  #if BOARD_MODEL != BOARD_RAK4631 && BOARD_MODEL != BOARD_HELTEC_T114 && BOARD_MODEL != BOARD_TECHO && BOARD_MODEL != BOARD_T3S3 && BOARD_MODEL != BOARD_TBEAM_S_V1 && BOARD_MODEL != BOARD_OPENCOM_XL && BOARD_MODEL != BOARD_WIO_L1
   // Some boards need to wait until the hardware UART is set up before booting
   // the full firmware. In the case of the RAK4631/TECHO, the line below will wait
   // until a serial connection is actually established with a master. Thus, it
@@ -1580,7 +1599,7 @@ void loop() {
   process_serial();
 
   #if HAS_DISPLAY
-    #if DISPLAY == OLED || DISPLAY == TFT || DISPLAY == ADAFRUIT_TFT
+    #if DISPLAY == OLED || DISPLAY == MONO_OLED || DISPLAY == TFT || DISPLAY == ADAFRUIT_TFT
     if (disp_ready) update_display();
     #elif DISPLAY == EINK_BW || DISPLAY == EINK_3C
     // Display refreshes take so long on e-paper displays that they can disrupt

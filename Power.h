@@ -148,6 +148,22 @@
   bool bat_voltage_dropping = false;
   float bat_delay_v = 0;
   float bat_state_change_v = 0;
+#elif BOARD_MODEL == BOARD_WIO_L1
+  #define BAT_V_MIN       3.15
+  #define BAT_V_MAX       4.165
+  #define BAT_V_CHG       4.48
+  #define BAT_V_FLOAT     4.13
+  #define BAT_SAMPLES     7
+  const uint8_t pin_vbat = 16;
+  float bat_p_samples[BAT_SAMPLES];
+  float bat_v_samples[BAT_SAMPLES];
+  uint8_t bat_samples_count = 0;
+  int bat_discharging_samples = 0;
+  int bat_charging_samples = 0;
+  int bat_charged_samples = 0;
+  bool bat_voltage_dropping = false;
+  float bat_delay_v = 0;
+  float bat_state_change_v = 0;
 #elif BOARD_MODEL == BOARD_TECHO
   #define BAT_V_MIN       3.15
   #define BAT_V_MAX       4.16
@@ -174,7 +190,7 @@ uint8_t pmu_rc = 0;
 void kiss_indicate_battery();
 
 void measure_battery() {
-  #if BOARD_MODEL == BOARD_RNODE_NG_21 || BOARD_MODEL == BOARD_LORA32_V2_1 || BOARD_MODEL == BOARD_HELTEC32_V3 || BOARD_MODEL == BOARD_TDECK || BOARD_MODEL == BOARD_T3S3 || BOARD_MODEL == BOARD_HELTEC_T114 || BOARD_MODEL == BOARD_TECHO
+  #if BOARD_MODEL == BOARD_RNODE_NG_21 || BOARD_MODEL == BOARD_LORA32_V2_1 || BOARD_MODEL == BOARD_HELTEC32_V3 || BOARD_MODEL == BOARD_TDECK || BOARD_MODEL == BOARD_T3S3 || BOARD_MODEL == BOARD_HELTEC_T114 || BOARD_MODEL == BOARD_TECHO || BOARD_MODEL == BOARD_WIO_L1
     battery_installed = true;
     battery_indeterminate = true;
 
@@ -186,6 +202,9 @@ void measure_battery() {
       float battery_measurement = (float)(analogRead(pin_vbat)) * 0.017165;
     #elif BOARD_MODEL == BOARD_TECHO
       float battery_measurement = (float)(analogRead(pin_vbat)) * 0.007067;
+    #elif BOARD_MODEL == BOARD_WIO_L1
+      // 12-bit ADC, AREF=3.6V, 2.0x voltage divider
+      float battery_measurement = (float)(analogRead(pin_vbat)) * 2.0 * 3.6 / 4096.0;
     #else
       float battery_measurement = (float)(analogRead(pin_vbat)) / 4095.0*7.26;
     #endif
@@ -444,6 +463,12 @@ bool init_pmu() {
   #elif BOARD_MODEL == BOARD_HELTEC_T114
     pinMode(pin_ctrl,OUTPUT);
     digitalWrite(pin_ctrl, HIGH);
+    return true;
+  #elif BOARD_MODEL == BOARD_WIO_L1
+    analogReadResolution(12);
+    pinMode(30, OUTPUT);      // VBAT_ENABLE
+    digitalWrite(30, HIGH);
+    pinMode(pin_vbat, INPUT);
     return true;
   #elif BOARD_MODEL == BOARD_TBEAM
     Wire.begin(I2C_SDA, I2C_SCL);

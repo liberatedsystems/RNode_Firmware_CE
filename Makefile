@@ -152,6 +152,9 @@ firmware-rak4631_sx1280:
 firmware-opencom-xl:
 	arduino-cli compile --fqbn rakwireless:nrf52:WisCoreRAK4631Board $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x52\" \"-DBOARD_VARIANT=0x21\""
 
+firmware-wio_l1:
+	arduino-cli compile --log --fqbn adafruit:nrf52:wio_tracker_l1 -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "build.sd_name=s140" --build-property "build.sd_version=7.3.0" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x53\"" --build-property "build.sd_fwid=0x0123"
+
 firmware-heltec_t114:
 	arduino-cli compile --log --fqbn Heltec_nRF52:Heltec_nRF52:HT-n5262 -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3C\""
 
@@ -272,6 +275,12 @@ upload-heltec_t114:
 	arduino-cli upload -p /dev/ttyACM0 --fqbn Heltec_nRF52:Heltec_nRF52:HT-n5262
 	@sleep 1
 	rnodeconf /dev/ttyACM0 --firmware-hash $$(./partition_hashes from_device /dev/ttyACM0)
+
+upload-wio_l1:
+	adafruit-nrfutil dfu genpkg --dev-type 0x0052 --sd-req 0x0123 --application build/adafruit.nrf52.wio_tracker_l1/RNode_Firmware_CE.ino.hex /tmp/rnode_wio_l1_dfu.zip
+	adafruit-nrfutil dfu serial --package /tmp/rnode_wio_l1_dfu.zip -p /dev/cu.usbmodem1101 -b 115200
+	@sleep 6
+	-rnodeconf /dev/cu.usbmodem1101 --firmware-hash $$(./partition_hashes from_device /dev/cu.usbmodem1101)
 
 upload-techo:
 	arduino-cli upload -p /dev/ttyACM0 --fqbn adafruit:nrf52:pca10056
@@ -521,6 +530,12 @@ release-opencom-xl:
 	arduino-cli compile --fqbn rakwireless:nrf52:WisCoreRAK4631Board $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x52\" \"-DBOARD_VARIANT=0x21\""
 	cp build/rakwireless.nrf52.WisCoreRAK4631Board/RNode_Firmware_CE.ino.hex build/rnode_firmware_opencom_xl.hex
 	adafruit-nrfutil dfu genpkg --dev-type 0x0052 --application build/rnode_firmware_opencom_xl.hex Release/rnode_firmware_opencom_xl.zip
+	rm -r build
+
+release-wio_l1:
+	arduino-cli compile --fqbn adafruit:nrf52:wio_tracker_l1 $(COMMON_BUILD_FLAGS) --build-property "build.sd_name=s140" --build-property "build.sd_version=7.3.0" --build-property "build.sd_fwid=0x0123" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x53\""
+	cp build/adafruit.nrf52.wio_tracker_l1/RNode_Firmware_CE.ino.hex build/rnode_firmware_wio_l1.hex
+	adafruit-nrfutil dfu genpkg --dev-type 0x0052 --application build/rnode_firmware_wio_l1.hex Release/rnode_firmware_wio_l1.zip
 	rm -r build
 
 release-heltec_t114:

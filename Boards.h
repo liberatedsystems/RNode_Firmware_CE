@@ -109,6 +109,10 @@
   #define BOARD_OPENCOM_XL    0x52
   #define MODEL_21            0x21 // openCom XL v1, 868/915 MHz
 
+  #define PRODUCT_WIO_L1      0x18
+  #define BOARD_WIO_L1        0x53
+  #define MODEL_19            0x19 // Wio Tracker L1 Pro, 868/915 MHz
+
   #define BOARD_E22_ESP32     0x45 // Custom Ebyte E22 board design for meshtastic, source:
                                    // https://github.com/NanoVHF/Meshtastic-DIY/blob/main/Schematics/E-Byte_E22/Mesh_Ebyte_E22-XXXM30S.pdf
 
@@ -1390,6 +1394,56 @@
       #define PIN_GPS_RX 37
       #define PIN_GPS_TX 39 
       #endif
+    #elif BOARD_MODEL == BOARD_WIO_L1
+      #define HAS_EEPROM false
+      #define HAS_DISPLAY true
+      #define DISPLAY MONO_OLED
+      #define HAS_BLUETOOTH false
+      #define HAS_BLE true
+      #define HAS_CONSOLE false
+      #define HAS_PMU true
+      #define HAS_NP false
+      #define HAS_SD false
+      #define HAS_INPUT true
+      #define CONFIG_UART_BUFFER_SIZE 6144
+      #define CONFIG_QUEUE_0_SIZE 6144
+      #define CONFIG_QUEUE_MAX_LENGTH 200
+      #define EEPROM_SIZE 296
+      #define EEPROM_OFFSET EEPROM_SIZE-EEPROM_RESERVED
+      #define BLE_MANUFACTURER "Seeed"
+      #define BLE_MODEL "Wio Tracker L1"
+
+      #define INTERFACE_COUNT 1
+
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
+                    // SX1262
+          {
+              false, // DEFAULT_SPI
+              true, // HAS_TCXO
+              true  // DIO2_AS_RF_SWITCH
+          }
+      };
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
+                  // SX1262
+          {
+              4, // pin_ss
+              8, // pin_sclk
+              10, // pin_mosi
+              9, // pin_miso
+              3, // pin_busy
+              1, // pin_dio
+              2, // pin_reset
+              -1, // pin_txen
+              5, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
+
+      const int pin_btn_usr1 = 29;
+      const int pin_led_rx = 11;
+      const int pin_led_tx = 11;
+
     #else
       #error An unsupported nRF board was selected. Cannot compile RNode firmware.
     #endif
