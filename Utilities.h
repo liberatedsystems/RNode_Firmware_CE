@@ -375,13 +375,6 @@ void hard_reset(void) {
 	#if MCU_VARIANT == MCU_ESP32
 		ESP.restart();
 	#elif MCU_VARIANT == MCU_NRF52
-    #if !HAS_EEPROM
-      if (file) {
-        file.flush();
-        file.close();
-      }
-      InternalFS.end();
-    #endif
     NVIC_SystemReset();
 	#endif
 }
@@ -1394,7 +1387,6 @@ void promisc_disable() {
         return false;
       }
     } else {
-      file_exists = true;
       file.close();
       file.open(EEPROM_FILE, FILE_O_WRITE);
       return true;

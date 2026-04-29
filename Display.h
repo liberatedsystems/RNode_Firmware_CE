@@ -283,6 +283,7 @@ void update_area_positions() {
 uint8_t display_contrast = 0x00;
 #if BOARD_MODEL == BOARD_TBEAM_S_V1 || BOARD_MODEL == BOARD_WIO_L1
   void set_contrast(Adafruit_SH1106G *display, uint8_t value) {
+    display->setContrast(value);
   }
 #elif BOARD_MODEL == BOARD_HELTEC_T114
   void set_contrast(ST7789Spi *display, uint8_t value) { }

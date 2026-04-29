@@ -148,14 +148,6 @@ void setup() {
       pinMode(PIN_VEXT_EN, OUTPUT);
       digitalWrite(PIN_VEXT_EN, HIGH);
       delay(100);
-    #elif BOARD_MODEL == BOARD_WIO_L1
-      pinMode(pin_btn_usr1, INPUT_PULLUP);
-      delay(50);
-      if (digitalRead(pin_btn_usr1) == LOW) {
-        InternalFS.begin();
-        InternalFS.format();
-        NVIC_SystemReset();
-      }
     #endif
 
 

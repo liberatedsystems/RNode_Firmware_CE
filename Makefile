@@ -278,9 +278,9 @@ upload-heltec_t114:
 
 upload-wio_l1:
 	adafruit-nrfutil dfu genpkg --dev-type 0x0052 --sd-req 0x0123 --application build/adafruit.nrf52.wio_tracker_l1/RNode_Firmware_CE.ino.hex /tmp/rnode_wio_l1_dfu.zip
-	adafruit-nrfutil dfu serial --package /tmp/rnode_wio_l1_dfu.zip -p /dev/cu.usbmodem1101 -b 115200
+	adafruit-nrfutil dfu serial --package /tmp/rnode_wio_l1_dfu.zip -p $(or $(port), /dev/ttyACM0) -b 115200
 	@sleep 6
-	-rnodeconf /dev/cu.usbmodem1101 --firmware-hash $$(./partition_hashes from_device /dev/cu.usbmodem1101)
+	-rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(./partition_hashes from_device $(or $(port), /dev/ttyACM0))
 
 upload-techo:
 	arduino-cli upload -p /dev/ttyACM0 --fqbn adafruit:nrf52:pca10056
