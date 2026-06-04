@@ -28,9 +28,9 @@
     #include <InternalFileSystem.h>
     using namespace Adafruit_LittleFS_Namespace;
     #define EEPROM_FILE "eeprom"
-    bool file_exists = false;
     int written_bytes = 4;
-    File file(InternalFS);
+    static uint8_t nrf52_eeprom_buffer[EEPROM_SIZE];
+    static bool nrf52_eeprom_buffer_ready = false;
 #endif
 #include <stddef.h>
 
@@ -1365,31 +1365,82 @@ void promisc_disable() {
 }
 
 #if !HAS_EEPROM && MCU_VARIANT == MCU_NRF52
-  bool eeprom_begin() {
-    InternalFS.begin();
-
-    file.open(EEPROM_FILE, FILE_O_READ);
-    if (!file) {
-      if (file.open(EEPROM_FILE, FILE_O_WRITE)) {
-      	for (uint32_t mapped_addr = 0; mapped_addr < EEPROM_SIZE; mapped_addr++) { file.seek(mapped_addr); file.write(0xFF); }
-        eeprom_flush();
-        return true;
-      } else {
-        return false;
-      }
-    } else {
-      file.close();
-      file.open(EEPROM_FILE, FILE_O_WRITE);
-      return true;
+  void nrf52_eeprom_fill_erased() {
+    for (uint32_t mapped_addr = 0; mapped_addr < EEPROM_SIZE; mapped_addr++) {
+      nrf52_eeprom_buffer[mapped_addr] = 0xFF;
     }
   }
 
+  bool nrf52_eeprom_write_file_full() {
+    File write_file(InternalFS);
+
+    if (!write_file.open(EEPROM_FILE, FILE_O_WRITE)) {
+      return false;
+    }
+
+    write_file.seek(0);
+
+    for (uint32_t mapped_addr = 0; mapped_addr < EEPROM_SIZE; mapped_addr++) {
+      if (write_file.write(nrf52_eeprom_buffer[mapped_addr]) != 1) {
+        write_file.close();
+        return false;
+      }
+    }
+
+    write_file.close();
+    return true;
+  }
+
+  bool nrf52_eeprom_load_file() {
+    File read_file(InternalFS);
+
+    if (!read_file.open(EEPROM_FILE, FILE_O_READ)) {
+      return false;
+    }
+
+    nrf52_eeprom_fill_erased();
+
+    for (uint32_t mapped_addr = 0; mapped_addr < EEPROM_SIZE; mapped_addr++) {
+      uint8_t byte = 0xFF;
+      int read_len = read_file.read(&byte, 1);
+
+      if (read_len == 1) {
+        nrf52_eeprom_buffer[mapped_addr] = byte;
+      } else {
+        read_file.close();
+        return false;
+      }
+    }
+
+    read_file.close();
+    return true;
+  }
+
+  bool eeprom_begin() {
+    InternalFS.begin();
+
+    bool loaded = nrf52_eeprom_load_file();
+    nrf52_eeprom_buffer_ready = true;
+    written_bytes = 0;
+
+    if (!loaded) {
+      nrf52_eeprom_fill_erased();
+      return nrf52_eeprom_write_file_full();
+    }
+
+    return true;
+  }
+
   uint8_t eeprom_read(uint32_t mapped_addr) {
-      uint8_t byte;
-      void* byte_ptr = &byte;
-      file.seek(mapped_addr);
-      file.read(byte_ptr, 1);
-      return byte;
+    if (!nrf52_eeprom_buffer_ready) {
+      eeprom_begin();
+    }
+
+    if (mapped_addr < EEPROM_SIZE) {
+      return nrf52_eeprom_buffer[mapped_addr];
+    } else {
+      return 0xFF;
+    }
   }
 #endif
 
@@ -1448,8 +1499,10 @@ void kiss_dump_eeprom() {
 
 #if !HAS_EEPROM && MCU_VARIANT == MCU_NRF52
 void eeprom_flush() {
-    file.close();
-    file.open(EEPROM_FILE, FILE_O_WRITE);
+    if (nrf52_eeprom_buffer_ready) {
+      nrf52_eeprom_write_file_full();
+    }
+
     written_bytes = 0;
 }
 #endif
@@ -1461,18 +1514,30 @@ void eeprom_update(int mapped_addr, uint8_t byte) {
 			EEPROM.commit();
 		}
   #elif !HAS_EEPROM && MCU_VARIANT == MCU_NRF52
-    // todo: clean up this implementation, writing one byte and syncing
-    // each time is really slow
-    uint8_t read_byte;
-    void* read_byte_ptr = &read_byte;
-    file.seek(mapped_addr);
-    file.read(read_byte_ptr, 1);
-    file.seek(mapped_addr);
-    if (read_byte != byte) {
-      file.write(byte);
+    if (!nrf52_eeprom_buffer_ready) {
+      eeprom_begin();
     }
-    written_bytes++;
-    eeprom_flush();
+
+    if (mapped_addr >= 0 && mapped_addr < EEPROM_SIZE) {
+      if (nrf52_eeprom_buffer[mapped_addr] != byte) {
+        nrf52_eeprom_buffer[mapped_addr] = byte;
+        written_bytes++;
+
+        // During ROM provisioning, rnodeconf writes the EEPROM one byte at a
+        // time and writes ADDR_INFO_LOCK last. Keep the write sequence in RAM
+        // and persist it atomically when the lock byte is written.
+        if (mapped_addr == eeprom_addr(ADDR_INFO_LOCK)) {
+          eeprom_flush();
+        }
+
+        // Persist saved radio configuration when the config-valid marker is
+        // written. Other configuration setters that require immediate storage
+        // already call eeprom_flush() explicitly where needed.
+        if (mapped_addr == eeprom_addr(ADDR_CONF_OK)) {
+          eeprom_flush();
+        }
+      }
+    }
 	#endif
 }
 
