@@ -123,6 +123,10 @@
   #define MODEL_16            0x16 // T-Echo 433 MHz
   #define MODEL_17            0x17 // T-Echo 868/915 MHz
 
+  #define PRODUCT_WIO_L1      0x18 // Seeed Wio Tracker L1 series (L1, L1 Pro)
+  #define BOARD_WIO_L1        0x53
+  #define MODEL_19            0x19 // Wio Tracker L1, 862-930 MHz
+
   #define PRODUCT_HMBRW       0xF0
   #define BOARD_HMBRW         0x32
   #define BOARD_HUZZAH32      0x34
@@ -158,6 +162,8 @@
   #define HAS_EEPROM false
   #define HAS_INPUT false
   #define HAS_SLEEP false
+  #define HAS_JOYSTICK false
+  #define HAS_BUZZER false
   #define PIN_DISP_SLEEP -1
   #define VALIDATE_FIRMWARE true
 
@@ -1388,8 +1394,78 @@
       #define HAS_GPS true
       #define GPS_BAUD_RATE 9600
       #define PIN_GPS_RX 37
-      #define PIN_GPS_TX 39 
+      #define PIN_GPS_TX 39
       #endif
+    #elif BOARD_MODEL == BOARD_WIO_L1
+      // Seeed Wio Tracker L1 (nRF52840 + Wio-SX1262), built against the
+      // generic adafruit:nrf52:pca10056 variant, so all pins below are raw
+      // nRF GPIO numbers (port*32 + pin).
+      #define _PINNUM(port, pin) ((port)*32 + (pin))
+      #define HAS_EEPROM false
+      #define HAS_DISPLAY true
+      #define DISPLAY MONO_OLED
+      #define HAS_BLUETOOTH false
+      #define HAS_BLE true
+      #define HAS_CONSOLE false
+      #define HAS_PMU true
+      #define HAS_NP false
+      #define HAS_SD false
+      #define HAS_TCXO true
+      #define HAS_BUSY true
+      #define HAS_INPUT true
+      #define HAS_SLEEP true
+      #define HAS_JOYSTICK true
+      #define HAS_BUZZER true
+      #define EEPROM_SIZE 296
+      #define EEPROM_OFFSET EEPROM_SIZE-EEPROM_RESERVED
+      #define BLE_MANUFACTURER "Seeed Studio"
+      #define BLE_MODEL "Wio Tracker L1"
+
+      #define INTERFACE_COUNT 1
+
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
+                    // SX1262
+          {
+              false, // DEFAULT_SPI
+              true,  // HAS_TCXO
+              true   // DIO2_AS_RF_SWITCH
+          }
+      };
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
+                  // SX1262
+          {
+              _PINNUM(1, 14), // pin_ss
+              _PINNUM(0, 30), // pin_sclk
+              _PINNUM(0, 28), // pin_mosi
+              _PINNUM(0, 3),  // pin_miso
+              _PINNUM(1, 10), // pin_busy
+              _PINNUM(0, 7),  // pin_dio
+              _PINNUM(1, 7),  // pin_reset
+              -1,             // pin_txen
+              _PINNUM(1, 8),  // pin_rxen
+              -1              // pin_tcxo_enable
+          }
+      };
+
+      const int pin_btn_usr1 = _PINNUM(0, 8); // Menu key
+
+      // 4-way joystick with center press
+      const int pin_joy_up    = _PINNUM(1, 4);
+      const int pin_joy_down  = _PINNUM(0, 12);
+      const int pin_joy_left  = _PINNUM(0, 11);
+      const int pin_joy_right = _PINNUM(1, 3);
+      const int pin_joy_press = _PINNUM(1, 5);
+
+      // Passive buzzer, PWM
+      const int pin_buzzer = _PINNUM(1, 0);
+
+      // L76K GNSS standby control (the GNSS is unused by this firmware)
+      const int pin_gnss_standby = _PINNUM(1, 9);
+
+      // Single user LED (yellow)
+      const int pin_led_rx = _PINNUM(1, 1);
+      const int pin_led_tx = _PINNUM(1, 1);
     #else
       #error An unsupported nRF board was selected. Cannot compile RNode firmware.
     #endif

@@ -35,6 +35,7 @@ Next, you need to find the name of the target for your board. Please reference t
 | LilyGO LoRa32 v2.1 | `lora32_v21` |
 | Heltec LoRa32 v2 | `heltec32_v2` |
 | Heltec LoRa32 v3 | `heltec32_v3` | 
+| Seeed Wio Tracker L1 | `wio_l1` |
 | Homebrew ESP32 boards | `genericesp32` |
 
 After you've ascertained the target for the board simply run the following to compile for the board:
@@ -68,6 +69,7 @@ After flashing a custom board, you will also need to provision the EEPROM before
 ```
 0x11: [430000000, 510000000, 22, "430 - 510 MHz", "rnode_firmware_rak4631.zip", "SX1262"],
 0x12: [779000000, 928000000, 22, "779 - 928 MHz", "rnode_firmware_rak4631.zip", "SX1262"],
+0x19: [862000000, 930000000, 22, "862 - 930 MHz", "rnode_firmware_wio_l1.zip", "SX1262"],
 0xA4: [410000000, 525000000, 14, "410 - 525 MHz", "rnode_firmware.hex", "SX1278"],
 0xA9: [820000000, 1020000000, 17, "820 - 1020 MHz", "rnode_firmware.hex", "SX1276"],
 0xA1: [410000000, 525000000, 22, "410 - 525 MHz", "rnode_firmware_t3s3.zip", "SX1268"],

@@ -86,6 +86,11 @@ firmware-tbeam_sx1262: check_bt_buffers
 firmware-techo:
 	arduino-cli compile --fqbn adafruit:nrf52:pca10056 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x44\""
 
+# The Wio Tracker L1 bootloader ships SoftDevice S140 v7.3.0, so the app is
+# linked with the v7 script from ./linker (the Adafruit core only bundles v6).
+firmware-wio_l1:
+	arduino-cli compile --fqbn adafruit:nrf52:pca10056 $(COMMON_BUILD_FLAGS) --build-property "build.sd_name=s140" --build-property "build.sd_version=7.3.0" --build-property "build.sd_fwid=0x0123" --build-property "build.ldscript=nrf52840_s140_v7.ld" --build-property "compiler.c.elf.extra_flags=-L$(CURDIR)/linker" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x53\""
+
 firmware-t3s3:
 	arduino-cli compile --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc" $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x42\" \"-DBOARD_VARIANT=0xAB\""
 
@@ -278,6 +283,12 @@ upload-techo:
 	@sleep 6
 	rnodeconf /dev/ttyACM0 --firmware-hash $$(./partition_hashes from_device /dev/ttyACM0)
 
+upload-wio_l1:
+	adafruit-nrfutil dfu genpkg --dev-type 0x0052 --sd-req 0x0123 --application build/adafruit.nrf52.pca10056/RNode_Firmware_CE.ino.hex build/rnode_wio_l1_dfu.zip
+	adafruit-nrfutil dfu serial --package build/rnode_wio_l1_dfu.zip -p $(or $(port), /dev/ttyACM0) -b 115200
+	@sleep 6
+	rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(./partition_hashes from_device $(or $(port), /dev/ttyACM0))
+
 release:  console-site spiffs-image $(shell grep ^release- Makefile | cut -d: -f1)
 
 release-hashes:
@@ -429,6 +440,13 @@ release-techo:
 	arduino-cli compile --fqbn adafruit:nrf52:pca10056 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x44\""
 	cp build/adafruit.nrf52.pca10056/RNode_Firmware_CE.ino.hex build/rnode_firmware_techo.hex
 	adafruit-nrfutil dfu genpkg --dev-type 0x0052 --application build/rnode_firmware_techo.hex Release/rnode_firmware_techo.zip
+	rm -r build
+
+release-wio_l1:
+	arduino-cli compile --fqbn adafruit:nrf52:pca10056 $(COMMON_BUILD_FLAGS) --build-property "build.sd_name=s140" --build-property "build.sd_version=7.3.0" --build-property "build.sd_fwid=0x0123" --build-property "build.ldscript=nrf52840_s140_v7.ld" --build-property "compiler.c.elf.extra_flags=-L$(CURDIR)/linker" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x53\""
+	cp build/adafruit.nrf52.pca10056/RNode_Firmware_CE.ino.hex build/rnode_firmware_wio_l1.hex
+	adafruit-nrfutil dfu genpkg --dev-type 0x0052 --sd-req 0x0123 --application build/rnode_firmware_wio_l1.hex Release/rnode_firmware_wio_l1.zip
+	uf2conv build/rnode_firmware_wio_l1.hex -c -f 0xADA52840 -o Release/rnode_firmware_wio_l1.uf2
 	rm -r build
 
 release-t3s3:
