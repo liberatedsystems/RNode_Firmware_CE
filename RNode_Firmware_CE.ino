@@ -46,13 +46,28 @@
     SPIClass interface_spi[1] = {
             // SX1262
             SPIClass(
-                NRF_SPIM1, 
-                interface_pins[0][3], 
-                interface_pins[0][1], 
+                NRF_SPIM1,
+                interface_pins[0][3],
+                interface_pins[0][1],
+                interface_pins[0][2]
+               )
+      };
+  #elif BOARD_MODEL == BOARD_WIO_L1
+    #define INTERFACE_SPI
+    SPIClass interface_spi[1] = {
+            // SX1262
+            SPIClass(
+                NRF_SPIM2,
+                interface_pins[0][3],
+                interface_pins[0][1],
                 interface_pins[0][2]
                )
       };
   #endif
+#endif
+
+#if BOARD_MODEL == BOARD_WIO_L1
+  #include <Adafruit_TinyUSB.h>
 #endif
 
 #ifndef INTERFACE_SPI
@@ -179,7 +194,7 @@ void setup() {
     boot_seq();
   #endif
 
-  #if BOARD_MODEL != BOARD_RAK4631 && BOARD_MODEL != BOARD_HELTEC_T114 && BOARD_MODEL != BOARD_TECHO && BOARD_MODEL != BOARD_T3S3 && BOARD_MODEL != BOARD_TBEAM_S_V1 && BOARD_MODEL != BOARD_OPENCOM_XL
+  #if BOARD_MODEL != BOARD_RAK4631 && BOARD_MODEL != BOARD_HELTEC_T114 && BOARD_MODEL != BOARD_TECHO && BOARD_MODEL != BOARD_T3S3 && BOARD_MODEL != BOARD_TBEAM_S_V1 && BOARD_MODEL != BOARD_OPENCOM_XL && BOARD_MODEL != BOARD_WIO_L1
   // Some boards need to wait until the hardware UART is set up before booting
   // the full firmware. In the case of the RAK4631/TECHO, the line below will wait
   // until a serial connection is actually established with a master. Thus, it
@@ -190,6 +205,17 @@ void setup() {
   // Configure input and output pins
   #if HAS_INPUT
     input_init();
+  #endif
+
+  #if HAS_BUZZER
+    buzzer_init();
+  #endif
+
+  #if BOARD_MODEL == BOARD_WIO_L1
+    // This firmware does not use the L76K GNSS; hold it in standby to
+    // save power. LOW is the standby level.
+    pinMode(pin_gnss_standby, OUTPUT);
+    digitalWrite(pin_gnss_standby, LOW);
   #endif
 
   #if HAS_NP == false
@@ -312,6 +338,14 @@ void setup() {
     delay(100);
   #endif
 
+  #if BOARD_MODEL == BOARD_WIO_L1
+    // The SX1262 stays powered across MCU resets and may hold another
+    // firmware's sync word (factory Meshtastic), which the probe below
+    // would reject. Reset it to defaults before probing.
+    interface_obj[0]->reset();
+    delay(100);
+  #endif
+
     // Check installed transceiver chip(s) and probe boot parameters. If any of
     // the configured modems cannot be initialised, do not boot
     for (int i = 0; i < INTERFACE_COUNT; i++) {
@@ -387,6 +421,15 @@ void setup() {
       pmu_ready = init_pmu();
     #endif
 
+    #if BOARD_MODEL == BOARD_WIO_L1
+      // Starting the SoftDevice while USB enumeration is in flight can
+      // deadlock the boot on this board. Wait for the host to finish
+      // enumerating, with a timeout for battery-only operation.
+      { uint32_t usb_wait_started = millis();
+        while (!TinyUSBDevice.mounted() && millis()-usb_wait_started < 3000) { delay(10); }
+        delay(100); }
+    #endif
+
     #if HAS_BLUETOOTH || HAS_BLE == true
       bt_init();
       bt_init_ran = true;
@@ -423,6 +466,10 @@ void setup() {
 
   // Validate board health, EEPROM and config
   validate_status();
+
+  #if HAS_BUZZER
+    buzzer_boot_signal();
+  #endif
 }
 
 void lora_receive(RadioInterface* radio) {
@@ -1580,7 +1627,7 @@ void loop() {
   process_serial();
 
   #if HAS_DISPLAY
-    #if DISPLAY == OLED || DISPLAY == TFT || DISPLAY == ADAFRUIT_TFT
+    #if DISPLAY == OLED || DISPLAY == MONO_OLED || DISPLAY == TFT || DISPLAY == ADAFRUIT_TFT
     if (disp_ready) update_display();
     #elif DISPLAY == EINK_BW || DISPLAY == EINK_3C
     // Display refreshes take so long on e-paper displays that they can disrupt
@@ -1679,12 +1726,26 @@ void sleep_now() {
         analogWrite(PIN_VEXT_EN, 0);
         delay(100);
       #endif
+      #if BOARD_MODEL == BOARD_WIO_L1
+        // The OLED keeps its last frame from internal RAM through
+        // SYSTEMOFF; clear it so the panel draws no current.
+        display.clearDisplay();
+        display.display();
+      #endif
       sd_power_gpregret_set(0, 0x6d);
       nrf_gpio_cfg_sense_input(pin_btn_usr1, NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
       NRF_POWER->SYSTEMOFF = 1;
     #endif
   #endif
 }
+
+#if HAS_JOYSTICK
+  void joystick_direction_event() {
+    #if HAS_DISPLAY
+      if (display_blanked) { display_unblank(); }
+    #endif
+  }
+#endif
 
 void button_event(uint8_t event, unsigned long duration) {
     if (display_blanked) {

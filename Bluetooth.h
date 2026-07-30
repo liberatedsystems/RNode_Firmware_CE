@@ -588,6 +588,7 @@ char bt_devname[11];
   void bt_enable_pairing() {
     // Serial.println("BT enable pairing");
     if (bt_state == BT_STATE_OFF) bt_start();
+    buzzer_pairing_signal();
 
     uint32_t pin = bt_get_passkey();
     char pin_char[6];
