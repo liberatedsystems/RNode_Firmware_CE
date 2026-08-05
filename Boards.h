@@ -254,15 +254,15 @@
 
       #if BOARD_VARIANT == MODEL_E4 || BOARD_VARIANT == MODEL_E9
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1276};
-      const bool interface_cfg[INTERFACE_COUNT][3] = {
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
                     // SX127X
           {
               true, // DEFAULT_SPI
               false, // HAS_TCXO
               false  // DIO2_AS_RF_SWITCH
-          },
+          }, 
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = {
+      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
                   // SX127X
           {
               18, // pin_ss
@@ -281,15 +281,15 @@
       #elif BOARD_VARIANT == MODEL_E3 || BOARD_VARIANT == MODEL_E8
       #define OCP_TUNED 0x28
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
-      const bool interface_cfg[INTERFACE_COUNT][3] = {
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
                     // SX1262
           {
               true, // DEFAULT_SPI
               true, // HAS_TCXO
               true  // DIO2_AS_RF_SWITCH
-          },
+          }, 
       };
-      const int8_t interface_pins[INTERFACE_COUNT][10] = {
+      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
                   // SX1262
           {
               18, // pin_ss

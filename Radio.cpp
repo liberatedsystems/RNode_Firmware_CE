@@ -601,6 +601,7 @@ uint8_t sx126x::packetRssiRaw() {
 }
 
 int ISR_VECT sx126x::packetRssi(uint8_t pkt_snr_raw) {
+    // may need more calculations here
     uint8_t buf[3] = {0};
     executeOpcodeRead(OP_PACKET_STATUS_6X, buf, 3);
     int pkt_rssi = -buf[0] / 2;

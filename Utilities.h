@@ -70,9 +70,9 @@ uint8_t eeprom_read(uint32_t mapped_addr);
 	#include "Device.h"
 #endif
 #if MCU_VARIANT == MCU_ESP32
-  //https://github.com/espressif/esp-idf/issues/8855
   #if BOARD_MODEL == BOARD_HELTEC32_V3
-    #include "hal/wdt_hal.h"
+    //https://github.com/espressif/esp-idf/issues/8855
+  	#include "hal/wdt_hal.h"
 	#elif BOARD_MODEL == BOARD_T3S3
 		#include "hal/wdt_hal.h"
   #else
