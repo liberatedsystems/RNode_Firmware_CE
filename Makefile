@@ -23,7 +23,9 @@ VFLAG =-v
 endif
 
 COMMON_BUILD_FLAGS =  $(VFLAG) -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152"
-COMMON_ESP_UPLOAD_FLAGS = $(VFLAG) --chip esp32 --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 4MB 0x210000
+COMMON_UPLOAD_FLAGS = $(VFLAG) --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m
+4MB_ESP32 = $(VFLAG) --chip esp32 --flash_size 4MB 0x210000
+4MB_ESP32-S3 = $(VFLAG) --chip esp32-s3 --flash_size 4MB 0x210000
 
 all: release
 
@@ -125,17 +127,23 @@ firmware-heltec32_v2_extled: check_bt_buffers
 firmware-heltec32_v3:
 	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3A\""
 
+firmware-heltec32_v4:
+	arduino-cli compile --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc" $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x43\""
+
+firmware-heltec32_v4_r8:
+	arduino-cli compile --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc" $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x43\" \"-DBOARD_VARIANT=0xCC\""
+
 firmware-heltec_w_paper:
 	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3E\""
 
+firmware-heltec_t114:
+	arduino-cli compile --fqbn Heltec_nRF52:Heltec_nRF52:HT-n5262 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3C\""
+
+firmware-heltec_t114_gps:
+	arduino-cli compile --fqbn Heltec_nRF52:Heltec_nRF52:HT-n5262 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3C\" \"-DBOARD_VARIANT=0xCB\""
+
 firmware-xiao_s3:
 	arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32S3 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3E\""
-
-firmware-heltec32_v4:
-	arduino-cli compile --log --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc" -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x43\""
-
-firmware-heltec32_v4_r8:
-	arduino-cli compile --log --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc" -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x43\" \"-DBOARD_VARIANT=0xCC\""
 
 firmware-rnode_ng_20: check_bt_buffers
 	arduino-cli compile --fqbn esp32:esp32:ttgo-lora32 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x40\""
@@ -158,107 +166,99 @@ firmware-rak4631_sx1280:
 firmware-opencom-xl:
 	arduino-cli compile --fqbn rakwireless:nrf52:WisCoreRAK4631Board $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x52\" \"-DBOARD_VARIANT=0x21\""
 
-firmware-heltec_t114:
-	arduino-cli compile --log --fqbn Heltec_nRF52:Heltec_nRF52:HT-n5262 -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3C\""
-
-firmware-heltec_t114_gps:
-	arduino-cli compile --log --fqbn Heltec_nRF52:Heltec_nRF52:HT-n5262 -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3C\" \"-DBOARD_VARIANT=0xCB\""
-
 upload-tbeam:
 	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn esp32:esp32:t-beam
 	@sleep 1
 	rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.t-beam/RNode_Firmware_CE.ino.bin)
 	@sleep 3
-	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) $(COMMON_ESP_UPLOAD_FLAGS) ./Release/console_image.bin
+	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) $(4MB_ESP32) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
 
 upload-tbeam_sx1262:
 	arduino-cli upload -p /dev/ttyACM0 --fqbn esp32:esp32:t-beam
 	@sleep 1
 	rnodeconf /dev/ttyACM0 --firmware-hash $$(./partition_hashes ./build/esp32.esp32.t-beam/RNode_Firmware_CE.ino.bin)
 	#@sleep 3
-	#python ./Release/esptool/esptool.py --chip esp32 --port /dev/ttyACM0 --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 4MB 0x210000 ./Release/console_image.bin
+	#python ./Release/esptool/esptool.py --port /dev/ttyACM0 $(4MB_ESP32) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
 
 upload-lora32_v10:
 	arduino-cli upload -p $(or $(port), /dev/ttyUSB0) --fqbn esp32:esp32:ttgo-lora32
 	@sleep 1
 	rnodeconf $(or $(port), /dev/ttyUSB0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.ttgo-lora32/RNode_Firmware_CE.ino.bin)
 	@sleep 3
-	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyUSB0) $(COMMON_ESP_UPLOAD_FLAGS) ./Release/console_image.bin
+	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyUSB0) $(4MB_ESP32) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
 
 upload-lora32_v20:
 	arduino-cli upload -p $(or $(port), /dev/ttyUSB0) --fqbn esp32:esp32:ttgo-lora32
 	@sleep 1
 	rnodeconf $(or $(port), /dev/ttyUSB0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.ttgo-lora32/RNode_Firmware_CE.ino.bin)
 	@sleep 3
-	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyUSB0) $(COMMON_ESP_UPLOAD_FLAGS) ./Release/console_image.bin
+	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyUSB0) $(4MB_ESP32) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
 
 upload-lora32_v21:
 	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn esp32:esp32:ttgo-lora32
 	@sleep 1
 	rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.ttgo-lora32/RNode_Firmware_CE.ino.bin)
 	@sleep 3
-	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) $(COMMON_ESP_UPLOAD_FLAGS) ./Release/console_image.bin
+	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) $(4MB_ESP32) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
 
 upload-heltec32_v2:
 	arduino-cli upload -p $(or $(port), /dev/ttyUSB0) --fqbn esp32:esp32:heltec_wifi_lora_32_V2
 	@sleep 1
 	rnodeconf $(or $(port), /dev/ttyUSB0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.heltec_wifi_lora_32_V2/RNode_Firmware_CE.ino.bin)
 	@sleep 3
-	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyUSB0) $(COMMON_ESP_UPLOAD_FLAGS) ./Release/console_image.bin
+	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyUSB0) $(4MB_ESP32) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
 
 upload-heltec_w_paper upload-heltec32_v3:
 	arduino-cli upload -p $(or $(port), /dev/ttyUSB0) --fqbn esp32:esp32:heltec_wifi_lora_32_V3
 	@sleep 1
 	rnodeconf $(or $(port), /dev/ttyUSB0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.heltec_wifi_lora_32_V3/RNode_Firmware_CE.ino.bin)
 	@sleep 3
-	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyUSB0) --chip esp32-s3 --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 4MB 0x210000 ./Release/console_image.bin
-
-upload-xiao_s3:
-	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn esp32:esp32:XIAO_ESP32S3
-	@sleep 1
-	rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.XIAO_ESP32S3/RNode_Firmware_CE.ino.bin)
-	@sleep 3
-	python ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) --chip esp32-s3 --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 8MB 0x210000 ./Release/console_image.bin
+	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyUSB0) $(4MB_ESP32-S3) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
 
 upload-heltec32_v4:
 	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn esp32:esp32:esp32s3
 	@sleep 1
 	rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.bin)
 	@sleep 3
-	python ./Release/esptool/esptool.py --chip esp32-s3 --port $(or $(port), /dev/ttyACM0) --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 16MB 0x210000 ./Release/console_image.bin
+	python ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) --chip esp32-s3 --flash_size 16MB 0x210000 $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
+
+upload-heltec_t114:
+	arduino-cli upload -p /dev/ttyACM0 --fqbn Heltec_nRF52:Heltec_nRF52:HT-n5262
+	@sleep 1
+	rnodeconf /dev/ttyACM0 --firmware-hash $$(./partition_hashes from_device /dev/ttyACM0)
 
 upload-tdeck:
 	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn esp32:esp32:esp32s3
 	@sleep 1
 	rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.bin)
 	@sleep 3
-	python ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) --chip esp32-s3 --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 4MB 0x210000 ./Release/console_image.bin
+	python ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) $(4MB_ESP32-S3) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
 
 upload-tbeam_supreme:
 	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn esp32:esp32:esp32s3
 	@sleep 1
 	rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.bin)
 	@sleep 3
-	python ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) --chip esp32-s3 --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 4MB 0x210000 ./Release/console_image.bin
+	python ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) $(4MB_ESP32-S3) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
 
 upload-rnode_ng_20:
 	arduino-cli upload -p $(or $(port), /dev/ttyUSB0) --fqbn esp32:esp32:ttgo-lora32
 	@sleep 1
 	rnodeconf $(or $(port), /dev/ttyUSB0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.ttgo-lora32/RNode_Firmware_CE.ino.bin)
 	@sleep 3
-	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyUSB0) $(COMMON_ESP_UPLOAD_FLAGS) ./Release/console_image.bin
+	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyUSB0) $(4MB_ESP32) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
 
 upload-rnode_ng_21:
 	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn esp32:esp32:ttgo-lora32
 	@sleep 1
 	rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.ttgo-lora32/RNode_Firmware_CE.ino.bin)
 	@sleep 3
-	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) $(COMMON_ESP_UPLOAD_FLAGS) ./Release/console_image.bin
+	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) $(4MB_ESP32) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
 
 upload-t3s3:
 	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn esp32:esp32:esp32s3
 	@sleep 1
-	python ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) --chip esp32-s3 --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 4MB 0x210000 ./Release/console_image.bin
+	python ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) $(4MB_ESP32-S3) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
 	@sleep 3
 	rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.bin)
 
@@ -279,12 +279,7 @@ upload-e22_esp32:
 	@sleep 1
 	rnodeconf $(or $(port), /dev/ttyUSB0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.esp32/RNode_Firmware_CE.ino.bin)
 	@sleep 3
-	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyUSB0) $(COMMON_ESP_UPLOAD_FLAGS)  ./Release/console_image.bin
-
-upload-heltec_t114:
-	arduino-cli upload -p /dev/ttyACM0 --fqbn Heltec_nRF52:Heltec_nRF52:HT-n5262
-	@sleep 1
-	rnodeconf /dev/ttyACM0 --firmware-hash $$(./partition_hashes from_device /dev/ttyACM0)
+	python3 ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyUSB0) $(4MB_ESP32) $(COMMON_UPLOAD_FLAGS)  ./Release/console_image.bin
 
 upload-techo:
 	arduino-cli upload -p /dev/ttyACM0 --fqbn adafruit:nrf52:pca10056
@@ -292,11 +287,11 @@ upload-techo:
 	rnodeconf /dev/ttyACM0 --firmware-hash $$(./partition_hashes from_device /dev/ttyACM0)
 
 upload-xiao_s3:
-	arduino-cli upload -p /dev/ttyACM0 --fqbn esp32:esp32:XIAO_ESP32S3
+	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn esp32:esp32:XIAO_ESP32S3
 	@sleep 1
-	rnodeconf /dev/ttyACM0 --firmware-hash $$(./partition_hashes ./build/esp32.esp32.XIAO_ESP32S3/RNode_Firmware_CE.ino.bin)
+	rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.XIAO_ESP32S3/RNode_Firmware_CE.ino.bin)
 	@sleep 3
-	python ./Release/esptool/esptool.py --chip esp32s3 --port /dev/ttyACM0 --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 4MB 0x210000 ./Release/console_image.bin
+	python ./Release/esptool/esptool.py --port /dev/ttyACM0 $(4MB_ESP32-S3) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
 
 release:  console-site spiffs-image $(shell grep ^release- Makefile | cut -d: -f1)
 
@@ -400,6 +395,24 @@ release-heltec32_v3:
 	zip --junk-paths ./Release/rnode_firmware_heltec32v3.zip ./Release/esptool/esptool.py ./Release/console_image.bin build/rnode_firmware_heltec32v3.boot_app0 build/rnode_firmware_heltec32v3.bin build/rnode_firmware_heltec32v3.bootloader build/rnode_firmware_heltec32v3.partitions
 	rm -r build
 
+release-heltec32_v4: check_bt_buffers
+	arduino-cli compile --fqbn esp32:esp32:esp32s3 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x43\""
+	cp ~/.arduino15/packages/esp32/hardware/esp32/$(ARDUINO_ESP_CORE_VER)/tools/partitions/boot_app0.bin build/rnode_firmware_heltec32v4pa.boot_app0
+	cp build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.bin build/rnode_firmware_heltec32v4pa.bin
+	cp build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.bootloader.bin build/rnode_firmware_heltec32v4pa.bootloader
+	cp build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.partitions.bin build/rnode_firmware_heltec32v4pa.partitions
+	zip --junk-paths ./Release/rnode_firmware_heltec32v4pa.zip ./Release/esptool/esptool.py ./Release/console_image.bin build/rnode_firmware_heltec32v4pa.boot_app0 build/rnode_firmware_heltec32v4pa.bin build/rnode_firmware_heltec32v4pa.bootloader build/rnode_firmware_heltec32v4pa.partitions
+	rm -r build
+
+release-heltec32_v4_r8: check_bt_buffers
+	arduino-cli compile --fqbn esp32:esp32:esp32s3 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x43\" \"-DBOARD_VARIANT=0xCC\""
+	cp ~/.arduino15/packages/esp32/hardware/esp32/$(ARDUINO_ESP_CORE_VER)/tools/partitions/boot_app0.bin build/rnode_firmware_heltec32v4r8pa.boot_app0
+	cp build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.bin build/rnode_firmware_heltec32v4r8pa.bin
+	cp build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.bootloader.bin build/rnode_firmware_heltec32v4r8pa.bootloader
+	cp build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.partitions.bin build/rnode_firmware_heltec32v4r8pa.partitions
+	zip --junk-paths ./Release/rnode_firmware_heltec32v4r8pa.zip ./Release/esptool/esptool.py ./Release/console_image.bin build/rnode_firmware_heltec32v4r8pa.boot_app0 build/rnode_firmware_heltec32v4r8pa.bin build/rnode_firmware_heltec32v4r8pa.bootloader build/rnode_firmware_heltec32v4r8pa.partitions
+	rm -r build
+
 release-heltec_w_paper:
 	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3E\""
 	cp ~/.arduino15/packages/esp32/hardware/esp32/$(ARDUINO_ESP_CORE_VER)/tools/partitions/boot_app0.bin build/rnode_firmware_heltecwpaper.boot_app0
@@ -416,24 +429,6 @@ release-xiao_s3:
 	cp build/esp32.esp32.XIAO_ESP32S3/RNode_Firmware_CE.ino.bootloader.bin build/rnode_firmware_xiao_esp32s3.bootloader
 	cp build/esp32.esp32.XIAO_ESP32S3/RNode_Firmware_CE.ino.partitions.bin build/rnode_firmware_xiao_esp32s3.partitions
 	zip --junk-paths ./Release/rnode_firmware_xiao_esp32s3.zip ./Release/esptool/esptool.py ./Release/console_image.bin build/rnode_firmware_xiao_esp32s3.boot_app0 build/rnode_firmware_xiao_esp32s3.bin build/rnode_firmware_xiao_esp32s3.bootloader build/rnode_firmware_xiao_esp32s3.partitions
-
-release-heltec32_v4: check_bt_buffers
-	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x43\""
-	cp ~/.arduino15/packages/esp32/hardware/esp32/$(ARDUINO_ESP_CORE_VER)/tools/partitions/boot_app0.bin build/rnode_firmware_heltec32v4pa.boot_app0
-	cp build/esp32.esp32.heltec_wifi_lora_32_V3/RNode_Firmware_CE.ino.bin build/rnode_firmware_heltec32v4pa.bin
-	cp build/esp32.esp32.heltec_wifi_lora_32_V3/RNode_Firmware_CE.ino.bootloader.bin build/rnode_firmware_heltec32v4pa.bootloader
-	cp build/esp32.esp32.heltec_wifi_lora_32_V3/RNode_Firmware_CE.ino.partitions.bin build/rnode_firmware_heltec32v4pa.partitions
-	zip --junk-paths ./Release/rnode_firmware_heltec32v4pa.zip ./Release/esptool/esptool.py ./Release/console_image.bin build/rnode_firmware_heltec32v4pa.boot_app0 build/rnode_firmware_heltec32v4pa.bin build/rnode_firmware_heltec32v4pa.bootloader build/rnode_firmware_heltec32v4pa.partitions
-	rm -r build
-
-release-heltec32_v4_r8: check_bt_buffers
-	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x43\" \"-DBOARD_VARIANT=0xCC\""
-	cp ~/.arduino15/packages/esp32/hardware/esp32/$(ARDUINO_ESP_CORE_VER)/tools/partitions/boot_app0.bin build/rnode_firmware_heltec32v4r8pa.boot_app0
-	cp build/esp32.esp32.heltec_wifi_lora_32_V3/RNode_Firmware_CE.ino.bin build/rnode_firmware_heltec32v4r8pa.bin
-	cp build/esp32.esp32.heltec_wifi_lora_32_V3/RNode_Firmware_CE.ino.bootloader.bin build/rnode_firmware_heltec32v4r8pa.bootloader
-	cp build/esp32.esp32.heltec_wifi_lora_32_V3/RNode_Firmware_CE.ino.partitions.bin build/rnode_firmware_heltec32v4r8pa.partitions
-	zip --junk-paths ./Release/rnode_firmware_heltec32v4r8pa.zip ./Release/esptool/esptool.py ./Release/console_image.bin build/rnode_firmware_heltec32v4r8pa.boot_app0 build/rnode_firmware_heltec32v4r8pa.bin build/rnode_firmware_heltec32v4r8pa.bootloader build/rnode_firmware_heltec32v4r8pa.partitions
-	rm -r build
 
 release-heltec32_v2_extled: check_bt_buffers
 	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V2 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x38\" \"-DEXTERNAL_LEDS=true\""
@@ -478,7 +473,7 @@ release-t3s3:
 	rm -r build
 
 release-t3s3_sx127x:
-	arduino-cli compile --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc" -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x42\" \"-DBOARD_VARIANT=0xA5\""
+	arduino-cli compile --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc" $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x42\" \"-DBOARD_VARIANT=0xA5\""
 	cp ~/.arduino15/packages/esp32/hardware/esp32/$(ARDUINO_ESP_CORE_VER)/tools/partitions/boot_app0.bin build/rnode_firmware_t3s3_sx127x.boot_app0
 	cp build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.bin build/rnode_firmware_t3s3_sx127x.bin
 	cp build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.bootloader.bin build/rnode_firmware_t3s3_sx127x.bootloader
@@ -487,7 +482,7 @@ release-t3s3_sx127x:
 	rm -r build
 
 release-t3s3_sx1280_pa:
-	arduino-cli compile --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc" -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x42\" \"-DBOARD_VARIANT=0xAC\""
+	arduino-cli compile --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc" $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x42\" \"-DBOARD_VARIANT=0xAC\""
 	cp ~/.arduino15/packages/esp32/hardware/esp32/$(ARDUINO_ESP_CORE_VER)/tools/partitions/boot_app0.bin build/rnode_firmware_t3s3_sx1280_pa.boot_app0
 	cp build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.bin build/rnode_firmware_t3s3_sx1280_pa.bin
 	cp build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.bootloader.bin build/rnode_firmware_t3s3_sx1280_pa.bootloader
@@ -513,7 +508,6 @@ release-tdeck:
 	zip --junk-paths ./Release/rnode_firmware_tdeck.zip ./Release/esptool/esptool.py ./Release/console_image.bin build/rnode_firmware_tdeck.boot_app0 build/rnode_firmware_tdeck.bin build/rnode_firmware_tdeck.bootloader build/rnode_firmware_tdeck.partitions
 	rm -r build
 
-
 release-tbeam_supreme:
 	arduino-cli compile --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc" $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3D\""
 	cp ~/.arduino15/packages/esp32/hardware/esp32/$(ARDUINO_ESP_CORE_VER)/tools/partitions/boot_app0.bin build/rnode_firmware_tbeam_supreme.boot_app0
@@ -522,7 +516,6 @@ release-tbeam_supreme:
 	cp build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.partitions.bin build/rnode_firmware_tbeam_supreme.partitions
 	zip --junk-paths ./Release/rnode_firmware_tbeam_supreme.zip ./Release/esptool/esptool.py ./Release/console_image.bin build/rnode_firmware_tbeam_supreme.boot_app0 build/rnode_firmware_tbeam_supreme.bin build/rnode_firmware_tbeam_supreme.bootloader build/rnode_firmware_tbeam_supreme.partitions
 	rm -r build
-
 
 release-featheresp32: check_bt_buffers
 	arduino-cli compile --fqbn esp32:esp32:featheresp32 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x34\""

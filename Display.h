@@ -491,11 +491,6 @@ bool display_init() {
         #elif BOARD_MODEL == BOARD_HELTEC32_V2
           disp_mode = DISP_MODE_PORTRAIT;
           display.setRotation(1);
-        #elif BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL
-          #if DISPLAY == OLED
-          #elif DISPLAY == EINK_BW || DISPLAY == EINK_3C
-          disp_mode = DISP_MODE_PORTRAIT;
-          #endif
         #elif BOARD_MODEL == BOARD_HELTEC32_V3
           disp_mode = DISP_MODE_PORTRAIT;
           display.setRotation(1);
@@ -506,8 +501,10 @@ bool display_init() {
           disp_mode = DISP_MODE_PORTRAIT;
           display.setRotation(1);
         #elif BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL
-          disp_mode = DISP_MODE_LANDSCAPE;
-          display.setRotation(0);
+          #if DISPLAY == OLED
+          #elif DISPLAY == EINK_BW || DISPLAY == EINK_3C
+          disp_mode = DISP_MODE_PORTRAIT;
+          #endif
         #elif BOARD_MODEL == BOARD_TDECK
           disp_mode = DISP_MODE_PORTRAIT;
           display.setRotation(3);
