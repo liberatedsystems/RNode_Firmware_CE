@@ -132,7 +132,10 @@ firmware-xiao_s3:
 	arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32S3 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3E\""
 
 firmware-heltec32_v4:
-	arduino-cli compile --log --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc" -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3F\""
+	arduino-cli compile --log --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc" -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x43\""
+
+firmware-heltec32_v4_r8:
+	arduino-cli compile --log --fqbn "esp32:esp32:esp32s3:CDCOnBoot=cdc" -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x43\" \"-DBOARD_VARIANT=0xCC\""
 
 firmware-rnode_ng_20: check_bt_buffers
 	arduino-cli compile --fqbn esp32:esp32:ttgo-lora32 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x40\""
@@ -421,6 +424,15 @@ release-heltec32_v4: check_bt_buffers
 	cp build/esp32.esp32.heltec_wifi_lora_32_V3/RNode_Firmware_CE.ino.bootloader.bin build/rnode_firmware_heltec32v4pa.bootloader
 	cp build/esp32.esp32.heltec_wifi_lora_32_V3/RNode_Firmware_CE.ino.partitions.bin build/rnode_firmware_heltec32v4pa.partitions
 	zip --junk-paths ./Release/rnode_firmware_heltec32v4pa.zip ./Release/esptool/esptool.py ./Release/console_image.bin build/rnode_firmware_heltec32v4pa.boot_app0 build/rnode_firmware_heltec32v4pa.bin build/rnode_firmware_heltec32v4pa.bootloader build/rnode_firmware_heltec32v4pa.partitions
+	rm -r build
+
+release-heltec32_v4_r8: check_bt_buffers
+	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x43\" \"-DBOARD_VARIANT=0xCC\""
+	cp ~/.arduino15/packages/esp32/hardware/esp32/$(ARDUINO_ESP_CORE_VER)/tools/partitions/boot_app0.bin build/rnode_firmware_heltec32v4r8pa.boot_app0
+	cp build/esp32.esp32.heltec_wifi_lora_32_V3/RNode_Firmware_CE.ino.bin build/rnode_firmware_heltec32v4r8pa.bin
+	cp build/esp32.esp32.heltec_wifi_lora_32_V3/RNode_Firmware_CE.ino.bootloader.bin build/rnode_firmware_heltec32v4r8pa.bootloader
+	cp build/esp32.esp32.heltec_wifi_lora_32_V3/RNode_Firmware_CE.ino.partitions.bin build/rnode_firmware_heltec32v4r8pa.partitions
+	zip --junk-paths ./Release/rnode_firmware_heltec32v4r8pa.zip ./Release/esptool/esptool.py ./Release/console_image.bin build/rnode_firmware_heltec32v4r8pa.boot_app0 build/rnode_firmware_heltec32v4r8pa.bin build/rnode_firmware_heltec32v4r8pa.bootloader build/rnode_firmware_heltec32v4r8pa.partitions
 	rm -r build
 
 release-heltec32_v2_extled: check_bt_buffers

@@ -1630,7 +1630,7 @@ bool eeprom_model_valid() {
 	#elif BOARD_MODEL == BOARD_HELTEC32_V3
 	if (model == MODEL_C5 || model == MODEL_CA) {
     #elif BOARD_MODEL == BOARD_HELTEC32_V4
-    if (model == MODEL_C8) {
+    if (model == MODEL_C8 || model == MODEL_CC) {
     #elif BOARD_MODEL == BOARD_H_W_PAPER
     if (model == MODEL_C8) {
     #elif BOARD_MODEL == BOARD_HELTEC_T114

@@ -114,7 +114,8 @@
 
   #define PRODUCT_H32_V4      0xC3
   #define BOARD_HELTEC32_V4   0x43
-  #define MODEL_C8            0xC8 // Heltec Lora32 v4, 850-950 MHz, 28dBm
+  #define MODEL_C8            0xC8 // Heltec Lora32 v4 (R2, 2MB PSRAM), 850-950 MHz, 28dBm
+  #define MODEL_CC            0xCC // Heltec Lora32 v4 (R8, 8MB PSRAM), 850-950 MHz, 28dBm
 
   #define PRODUCT_HELTEC_T114 0xC2 // Heltec Mesh Node T114
   #define BOARD_HELTEC_T114   0x3C
@@ -670,10 +671,15 @@
       #define HAS_SLEEP true
       #define HAS_LORA_PA true
       #define HAS_LORA_LNA true
+      #define INTERFACE_COUNT 1
       #define PIN_WAKEUP GPIO_NUM_0
       #define WAKEUP_LEVEL 0
       #define OCP_TUNED 0x28
-      #define Vext GPIO_NUM_36
+      #if BOARD_VARIANT == MODEL_CC
+        #define Vext GPIO_NUM_40 // R8 variant (ESP32-S3R8, 8MB Octal PSRAM)
+      #else
+        #define Vext GPIO_NUM_36 // R2 variant (ESP32-S3R2, 2MB Quad PSRAM)
+      #endif
       #define LORA_PA_MODEL LORA_PA_UNKNOWN;
 
       const int pin_btn_usr1 = 0;
@@ -681,6 +687,9 @@
       #if defined(EXTERNAL_LEDS)
         const int pin_led_rx = 13;
         const int pin_led_tx = 14;
+      #elif BOARD_VARIANT == MODEL_CC
+        const int pin_led_rx = 46;
+        const int pin_led_tx = 46;
       #else
         const int pin_led_rx = 35;
         const int pin_led_tx = 35;
@@ -715,6 +724,31 @@
       const int pin_mosi = 10;
       const int pin_miso = 11;
       const int pin_sclk = 9;
+
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
+                    // SX1262
+          {
+              true, // DEFAULT_SPI
+              true, // HAS_TCXO
+              true  // DIO2_AS_RF_SWITCH
+          },
+      };
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
+                  // SX1262
+          {
+              8,  // pin_ss
+              9,  // pin_sclk
+              10, // pin_mosi
+              11, // pin_miso
+              13, // pin_busy
+              14, // pin_dio
+              12, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
 
     #elif BOARD_MODEL == BOARD_RNODE_NG_20
       #define HAS_DISPLAY true
