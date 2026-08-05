@@ -692,20 +692,20 @@ void draw_battery_bars(int px, int py) {
           stat_area.drawBitmap(px-2, py-2, bm_plug, 17, 7, DISPLAY_WHITE, DISPLAY_BLACK);
         } else {
           if (battery_state == BATTERY_STATE_CHARGED) {
-              stat_area.fillRect(px-2, py-2, 18, 7, DISPLAY_BLACK);
-              stat_area.drawBitmap(px-2, py-2, bm_plug, 17, 7, DISPLAY_WHITE, DISPLAY_BLACK);
+            stat_area.fillRect(px-2, py-2, 18, 7, DISPLAY_BLACK);
+            stat_area.drawBitmap(px-2, py-2, bm_plug, 17, 7, DISPLAY_WHITE, DISPLAY_BLACK);
           } else {
-                stat_area.fillRect(px, py, 14, 3, DISPLAY_BLACK);
-                stat_area.fillRect(px-2, py-2, 18, 7, DISPLAY_BLACK);
-                stat_area.drawRect(px-2, py-2, 17, 7, DISPLAY_WHITE);
-                stat_area.drawLine(px+15, py, px+15, py+3, DISPLAY_WHITE);
-                if (battery_value > 7) stat_area.drawLine(px, py, px, py+2, DISPLAY_WHITE);
-                if (battery_value > 20) stat_area.drawLine(px+1*2, py, px+1*2, py+2, DISPLAY_WHITE);
-                if (battery_value > 33) stat_area.drawLine(px+2*2, py, px+2*2, py+2, DISPLAY_WHITE);
-                if (battery_value > 46) stat_area.drawLine(px+3*2, py, px+3*2, py+2, DISPLAY_WHITE);
-                if (battery_value > 59) stat_area.drawLine(px+4*2, py, px+4*2, py+2, DISPLAY_WHITE);
-                if (battery_value > 72) stat_area.drawLine(px+5*2, py, px+5*2, py+2, DISPLAY_WHITE);
-                if (battery_value > 85) stat_area.drawLine(px+6*2, py, px+6*2, py+2, DISPLAY_WHITE);
+            stat_area.fillRect(px, py, 14, 3, DISPLAY_BLACK);
+            stat_area.fillRect(px-2, py-2, 18, 7, DISPLAY_BLACK);
+            stat_area.drawRect(px-2, py-2, 17, 7, DISPLAY_WHITE);
+            stat_area.drawLine(px+15, py, px+15, py+3, DISPLAY_WHITE);
+            if (battery_value > 7) stat_area.drawLine(px, py, px, py+2, DISPLAY_WHITE);
+            if (battery_value > 20) stat_area.drawLine(px+1*2, py, px+1*2, py+2, DISPLAY_WHITE);
+            if (battery_value > 33) stat_area.drawLine(px+2*2, py, px+2*2, py+2, DISPLAY_WHITE);
+            if (battery_value > 46) stat_area.drawLine(px+3*2, py, px+3*2, py+2, DISPLAY_WHITE);
+            if (battery_value > 59) stat_area.drawLine(px+4*2, py, px+4*2, py+2, DISPLAY_WHITE);
+            if (battery_value > 72) stat_area.drawLine(px+5*2, py, px+5*2, py+2, DISPLAY_WHITE);
+            if (battery_value > 85) stat_area.drawLine(px+6*2, py, px+6*2, py+2, DISPLAY_WHITE);
           }
         }
       } else {
