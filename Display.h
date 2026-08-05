@@ -85,6 +85,11 @@ void busyCallback(const void* p) { display_callback(); }
   #define DISP_ADDR 0x3C
   #define SCL_OLED 18
   #define SDA_OLED 17
+#elif BOARD_MODEL == BOARD_HELTEC32_V4
+  #define DISP_RST 21
+  #define DISP_ADDR 0x3C
+  #define SCL_OLED 18
+  #define SDA_OLED 17
 #elif BOARD_MODEL == BOARD_RNODE_NG_21
   #if DISPLAY == OLED
   #define DISP_RST -1
@@ -220,6 +225,7 @@ uint8_t online_interfaces = 0;
 #define WATERFALL_SIZE 46
 
 int waterfall[INTERFACE_COUNT][WATERFALL_SIZE] = {0};
+int waterfall_meta[INTERFACE_COUNT][WATERFALL_SIZE] = {0};
 int waterfall_head[INTERFACE_COUNT] = {0};
 
 int p_ad_x = 0;
@@ -330,6 +336,18 @@ bool display_init() {
     #elif BOARD_MODEL == BOARD_HELTEC32_V2
       Wire.begin(SDA_OLED, SCL_OLED);
     #elif BOARD_MODEL == BOARD_HELTEC32_V3
+      // enable vext / pin 36
+      pinMode(Vext, OUTPUT);
+      digitalWrite(Vext, LOW);
+      delay(50);
+      int pin_display_en = 21;
+      pinMode(pin_display_en, OUTPUT);
+      digitalWrite(pin_display_en, LOW);
+      delay(50);
+      digitalWrite(pin_display_en, HIGH);
+      delay(50);
+      Wire.begin(SDA_OLED, SCL_OLED);
+    #elif BOARD_MODEL == BOARD_HELTEC32_V4
       // enable vext / pin 36
       pinMode(Vext, OUTPUT);
       digitalWrite(Vext, LOW);
@@ -484,9 +502,12 @@ bool display_init() {
           #elif BOARD_MODEL == BOARD_HELTEC32_V3
             disp_mode = DISP_MODE_PORTRAIT;
             display.setRotation(1);
-          #elif BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL
-            disp_mode = DISP_MODE_LANDSCAPE;
-            display.setRotation(0);
+          #elif BOARD_MODEL == BOARD_HELTEC32_V4
+            disp_mode = DISP_MODE_PORTRAIT;
+            display.setRotation(1);
+          #elif BOARD_MODEL == BOARD_HELTEC_T114
+            disp_mode = DISP_MODE_PORTRAIT;
+            display.setRotation(1);
           #elif BOARD_MODEL == BOARD_TDECK
             disp_mode = DISP_MODE_PORTRAIT;
             display.setRotation(3);
@@ -769,18 +790,24 @@ void draw_signal_bars(int px, int py) {
 #define WF_RSSI_MIN -135
 #define WF_RSSI_SPAN (WF_RSSI_MAX - WF_RSSI_MIN)
 #define WF_PIXEL_WIDTH 10
+#define WF_M_RX   0x00
+#define WF_M_TX   0x01
+#define WF_M_NTFR 0x02
 void draw_waterfall(int px, int py) {
   int rssi_val = interface_obj[interface_page]->currentRssi();
   if (rssi_val < WF_RSSI_MIN) rssi_val = WF_RSSI_MIN;
   if (rssi_val > WF_RSSI_MAX) rssi_val = WF_RSSI_MAX;
   int rssi_normalised = ((rssi_val - WF_RSSI_MIN)*(1.0/WF_RSSI_SPAN))*WF_PIXEL_WIDTH;
   if (display_tx[interface_page]) {
-    for (uint8_t i; i < WF_TX_SIZE; i++) {
+    for (uint8_t i = 0; i < WF_TX_SIZE; i++) {
+      waterfall_meta[interface_page][waterfall_head[interface_page]] = WF_M_TX;
       waterfall[interface_page][waterfall_head[interface_page]++] = -1;
       if (waterfall_head[interface_page] >= WATERFALL_SIZE) waterfall_head[interface_page] = 0;
     }
     display_tx[interface_page] = false;
   } else {
+    if (interface_obj[interface_page]->getInterference()) { waterfall_meta[interface_page][waterfall_head[interface_page]] = WF_M_NTFR; }
+    else                                                   { waterfall_meta[interface_page][waterfall_head[interface_page]] = WF_M_RX; }
     waterfall[interface_page][waterfall_head[interface_page]++] = rssi_normalised;
     if (waterfall_head[interface_page] >= WATERFALL_SIZE) waterfall_head[interface_page] = 0;
   }
@@ -789,8 +816,13 @@ void draw_waterfall(int px, int py) {
   for (int i = 0; i < WATERFALL_SIZE; i++){
     int wi = (waterfall_head[interface_page]+i)%WATERFALL_SIZE;
     int ws = waterfall[interface_page][wi];
+    int wm = waterfall_meta[interface_page][wi];
     if (ws > 0) {
-      stat_area.drawLine(px, py+i, px+ws-1, py+i, DISPLAY_WHITE);
+      if      (wm == WF_M_RX)   { stat_area.drawLine(px, py+i, px+ws-1, py+i, DISPLAY_WHITE); }
+      else if (wm == WF_M_NTFR) {
+        uint8_t o = 0;
+        for (uint8_t ti = 0; ti < WF_PIXEL_WIDTH/2; ti++) { stat_area.drawPixel(px+ti*2+o, py+i, DISPLAY_WHITE); }
+      }
     } else if (ws == -1) {
       uint8_t o = i%2;
       for (uint8_t ti = 0; ti < WF_PIXEL_WIDTH/2; ti++) {

@@ -112,6 +112,11 @@
   #define BOARD_E22_ESP32     0x45 // Custom Ebyte E22 board design for meshtastic, source:
                                    // https://github.com/NanoVHF/Meshtastic-DIY/blob/main/Schematics/E-Byte_E22/Mesh_Ebyte_E22-XXXM30S.pdf
 
+  #define PRODUCT_H32_V4      0xC3
+  #define BOARD_HELTEC32_V4   0x43
+  #define MODEL_C8            0xC8 // Heltec Lora32 v4 (R2, 2MB PSRAM), 850-950 MHz, 28dBm
+  #define MODEL_CC            0xCC // Heltec Lora32 v4 (R8, 8MB PSRAM), 850-950 MHz, 28dBm
+
   #define PRODUCT_HELTEC_T114 0xC2 // Heltec Mesh Node T114
   #define BOARD_HELTEC_T114   0x3C
   #define MODEL_C6            0xC6 // Heltec Mesh Node T114, 470-510 MHz
@@ -149,6 +154,20 @@
       #error "The firmware cannot be compiled for the selected MCU variant"
   #endif
 
+  #ifndef MODEM
+    #if BOARD_MODEL == BOARD_RAK4631
+      #define MODEM SX1262
+    #elif BOARD_MODEL == BOARD_GENERIC_NRF52
+      #define MODEM SX1262
+    #else
+      #define MODEM SX1276
+    #endif
+  #endif
+
+  #define LORA_PA_UNKNOWN  0x00
+  #define LORA_PA_GC1109   0x01
+  #define LORA_PA_KCT8103L 0x02
+
   #define HAS_DISPLAY false
   #define HAS_BLUETOOTH false
   #define HAS_BLE false
@@ -158,6 +177,8 @@
   #define HAS_EEPROM false
   #define HAS_INPUT false
   #define HAS_SLEEP false
+  #define HAS_LORA_PA false
+  #define HAS_LORA_LNA false
   #define PIN_DISP_SLEEP -1
   #define VALIDATE_FIRMWARE true
 
@@ -258,7 +279,7 @@
       };
 
       #elif BOARD_VARIANT == MODEL_E3 || BOARD_VARIANT == MODEL_E8
-      #define OCP_TUNED 0x38
+      #define OCP_TUNED 0x28
       const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
       const bool interface_cfg[INTERFACE_COUNT][3] = { 
                     // SX1262
@@ -539,7 +560,7 @@
       #define PIN_WAKEUP GPIO_NUM_0
       #define WAKEUP_LEVEL 0
       #define INTERFACE_COUNT 1
-      #define OCP_TUNED 0x38
+      #define OCP_TUNED 0x28
 
       const int pin_btn_usr1 = 0;
 
@@ -637,6 +658,97 @@
       const int pin_disp_reset = 6;
       const int pin_disp_busy = 7;
       const int pin_disp_en = 45;
+
+    #elif BOARD_MODEL == BOARD_HELTEC32_V4
+      #define IS_ESP32S3 true
+      #define HAS_DISPLAY true
+      #define HAS_BLUETOOTH false
+      #define HAS_BLE true
+      #define HAS_PMU true
+      #define HAS_CONSOLE true
+      #define HAS_EEPROM true
+      #define HAS_INPUT true
+      #define HAS_SLEEP true
+      #define HAS_LORA_PA true
+      #define HAS_LORA_LNA true
+      #define INTERFACE_COUNT 1
+      #define PIN_WAKEUP GPIO_NUM_0
+      #define WAKEUP_LEVEL 0
+      #define OCP_TUNED 0x28
+      #if BOARD_VARIANT == MODEL_CC
+        #define Vext GPIO_NUM_40 // R8 variant (ESP32-S3R8, 8MB Octal PSRAM)
+      #else
+        #define Vext GPIO_NUM_36 // R2 variant (ESP32-S3R2, 2MB Quad PSRAM)
+      #endif
+      #define LORA_PA_MODEL LORA_PA_UNKNOWN;
+
+      const int pin_btn_usr1 = 0;
+
+      #if defined(EXTERNAL_LEDS)
+        const int pin_led_rx = 13;
+        const int pin_led_tx = 14;
+      #elif BOARD_VARIANT == MODEL_CC
+        const int pin_led_rx = 46;
+        const int pin_led_tx = 46;
+      #else
+        const int pin_led_rx = 35;
+        const int pin_led_tx = 35;
+      #endif
+
+      #define MODEM SX1262
+      #define HAS_TCXO true
+      const int pin_tcxo_enable = -1;
+      #define HAS_BUSY true
+      #define DIO2_AS_RF_SWITCH true
+      #define LNA_GD_THRSHLD (-109)
+      #define LNA_GD_LIMIT   (-89)
+
+      #define LORA_LNA_GAIN  17
+      #define LORA_LNA_GVT   14
+      #define LORA_PA_PWR_EN  7
+      #define LORA_PA_CSD     2 // Same pin on GC1109
+      #define LORA_PA_CPS    46 // Same pin on GC1109
+      #define LORA_PA_CTX     5 // Only used on KCT8103
+
+      #define PA_MAX_OUTPUT  28
+      #define PA_GAIN_POINTS 22
+      
+      #define LORA_LNA_KCT8103L_GAIN 21
+      const int PA_GC1109_VALUES[PA_GAIN_POINTS] =   {11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 11, 10, 10,  9, 9, 8, 7};
+      const int PA_KCT8103L_VALUES[PA_GAIN_POINTS] = {13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 12, 12, 11, 11, 10, 9, 8, 7};
+
+      const int pin_cs = 8;
+      const int pin_busy = 13;
+      const int pin_dio = 14;
+      const int pin_reset = 12;
+      const int pin_mosi = 10;
+      const int pin_miso = 11;
+      const int pin_sclk = 9;
+
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
+                    // SX1262
+          {
+              true, // DEFAULT_SPI
+              true, // HAS_TCXO
+              true  // DIO2_AS_RF_SWITCH
+          },
+      };
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
+                  // SX1262
+          {
+              8,  // pin_ss
+              9,  // pin_sclk
+              10, // pin_mosi
+              11, // pin_miso
+              13, // pin_busy
+              14, // pin_dio
+              12, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
 
     #elif BOARD_MODEL == BOARD_RNODE_NG_20
       #define HAS_DISPLAY true
@@ -926,7 +1038,7 @@
 
     #elif BOARD_MODEL == BOARD_TBEAM_S_V1
       #define IS_ESP32S3 true
-      #define OCP_TUNED 0x38
+      #define OCP_TUNED 0x28
 
       #define HAS_DISPLAY true
       #define DISPLAY MONO_OLED
@@ -1415,7 +1527,7 @@
   // Default OCP value if not specified
   // in board configuration
   #ifndef OCP_TUNED
-    #define OCP_TUNED 0x38
+    #define OCP_TUNED 0x28
   #endif
 
   #ifndef NP_M
