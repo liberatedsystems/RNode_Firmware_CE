@@ -497,7 +497,7 @@ bool display_init() {
             disp_mode = DISP_MODE_PORTRAIT;
             #endif
           #elif BOARD_MODEL == BOARD_TECHO
-            disp_mode = DISP_MODE_PORTRAIT;
+            disp_mode = DISP_MODE_LANDSCAPE;
             display.setRotation(3);
           #elif BOARD_MODEL == BOARD_HELTEC32_V3
             disp_mode = DISP_MODE_PORTRAIT;
