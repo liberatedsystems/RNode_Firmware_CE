@@ -159,10 +159,10 @@ firmware-opencom-xl:
 	arduino-cli compile --fqbn rakwireless:nrf52:WisCoreRAK4631Board $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x52\" \"-DBOARD_VARIANT=0x21\""
 
 firmware-heltec_t114:
-	arduino-cli compile --fqbn Heltec_nRF52:Heltec_nRF52:HT-n5262 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3C\""
+	arduino-cli compile --log --fqbn Heltec_nRF52:Heltec_nRF52:HT-n5262 -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3C\""
 
 firmware-heltec_t114_gps:
-	arduino-cli compile --fqbn Heltec_nRF52:Heltec_nRF52:HT-n5262 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3C\" \"-DBOARD_VARIANT=0xCB\""
+	arduino-cli compile --log --fqbn Heltec_nRF52:Heltec_nRF52:HT-n5262 -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3C\" \"-DBOARD_VARIANT=0xCB\""
 
 upload-tbeam:
 	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn esp32:esp32:t-beam
@@ -258,9 +258,9 @@ upload-rnode_ng_21:
 upload-t3s3:
 	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn esp32:esp32:esp32s3
 	@sleep 1
-	python ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) $(4MB_ESP32-S3) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
-	@sleep 3
 	python ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyACM0) --chip esp32-s3 --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 80m --flash_size 4MB 0x210000 ./Release/console_image.bin
+	@sleep 3
+	rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.esp32s3/RNode_Firmware_CE.ino.bin)
 
 upload-featheresp32:
 	arduino-cli upload -p $(or $(port), /dev/ttyUSB0) --fqbn esp32:esp32:featheresp32
@@ -290,13 +290,6 @@ upload-techo:
 	arduino-cli upload -p /dev/ttyACM0 --fqbn adafruit:nrf52:pca10056
 	@sleep 6
 	rnodeconf /dev/ttyACM0 --firmware-hash $$(./partition_hashes from_device /dev/ttyACM0)
-
-upload-xiao_s3:
-	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn esp32:esp32:XIAO_ESP32S3
-	@sleep 1
-	rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(./partition_hashes ./build/esp32.esp32.XIAO_ESP32S3/RNode_Firmware_CE.ino.bin)
-	@sleep 3
-	python ./Release/esptool/esptool.py --port /dev/ttyACM0 $(4MB_ESP32-S3) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
 
 release:  console-site spiffs-image $(shell grep ^release- Makefile | cut -d: -f1)
 
@@ -390,7 +383,6 @@ release-heltec32_v2: check_bt_buffers
 	cp build/esp32.esp32.heltec_wifi_lora_32_V2/RNode_Firmware_CE.ino.bin build/rnode_firmware_heltec32v2.bin
 	cp build/esp32.esp32.heltec_wifi_lora_32_V2/RNode_Firmware_CE.ino.bootloader.bin build/rnode_firmware_heltec32v2.bootloader
 	cp build/esp32.esp32.heltec_wifi_lora_32_V2/RNode_Firmware_CE.ino.partitions.bin build/rnode_firmware_heltec32v2.partitions
-	rm -r build
 
 release-heltec32_v3:
 	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V3 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3A\""
@@ -435,6 +427,7 @@ release-xiao_s3:
 	cp build/esp32.esp32.XIAO_ESP32S3/RNode_Firmware_CE.ino.bootloader.bin build/rnode_firmware_xiao_esp32s3.bootloader
 	cp build/esp32.esp32.XIAO_ESP32S3/RNode_Firmware_CE.ino.partitions.bin build/rnode_firmware_xiao_esp32s3.partitions
 	zip --junk-paths ./Release/rnode_firmware_xiao_esp32s3.zip ./Release/esptool/esptool.py ./Release/console_image.bin build/rnode_firmware_xiao_esp32s3.boot_app0 build/rnode_firmware_xiao_esp32s3.bin build/rnode_firmware_xiao_esp32s3.bootloader build/rnode_firmware_xiao_esp32s3.partitions
+	rm -r build
 
 release-heltec32_v2_extled: check_bt_buffers
 	arduino-cli compile --fqbn esp32:esp32:heltec_wifi_lora_32_V2 $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x38\" \"-DEXTERNAL_LEDS=true\""
