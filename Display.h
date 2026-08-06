@@ -97,6 +97,13 @@ void busyCallback(const void* p) { display_callback(); }
   #define SCL_OLED 17
   #define SDA_OLED 18
   #endif
+#elif BOARD_MODEL == BOARD_MINIMESH_LITE || BOARD_MODEL == BOARD_MICROMESH
+  #if DISPLAY == MONO_OLED
+  #define DISP_RST -1
+  #define DISP_ADDR 0x3C
+  #define SCL_OLED 11
+  #define SDA_OLED 36 // P1.04 = 32+4 = 36
+  #endif
 #elif BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL
   #if DISPLAY == OLED
   // RAK1921/SSD1306
@@ -170,8 +177,8 @@ uint32_t last_epd_full_refresh = 0;
     Adafruit_SSD1306 display(DISP_W, DISP_H, &Wire, DISP_RST);
   #elif BOARD_MODEL == BOARD_TDECK
     Adafruit_ST7789 display = Adafruit_ST7789(DISPLAY_CS, DISPLAY_DC, -1);
-  #elif BOARD_MODEL == BOARD_TBEAM_S_V1
-    Adafruit_SH1106G display = Adafruit_SH1106G(DISP_W, DISP_H, &Wire, -1);
+  #elif BOARD_MODEL == BOARD_TBEAM_S_V1 || BOARD_MODEL == BOARD_MINIMESH_LITE || BOARD_MODEL == BOARD_MICROMESH
+    Adafruit_SH1106G display = Adafruit_SH1106G(DISP_W, DISP_H, &Wire, DISP_RST);
   #elif BOARD_MODEL == BOARD_HELTEC_T114
     ST7789Spi display(&SPI1, DISPLAY_RST, DISPLAY_DC, DISPLAY_CS);
   #endif
@@ -273,7 +280,7 @@ void update_area_positions() {
 }
 
 uint8_t display_contrast = 0x00;
-#if BOARD_MODEL == BOARD_TBEAM_S_V1
+#if BOARD_MODEL == BOARD_TBEAM_S_V1 || BOARD_MODEL == BOARD_MINIMESH_LITE || BOARD_MODEL == BOARD_MICROMESH
   void set_contrast(Adafruit_SH1106G *display, uint8_t value) {
   }
 #elif BOARD_MODEL == BOARD_HELTEC_T114
@@ -379,6 +386,9 @@ bool display_init() {
       Wire.begin(SDA_OLED, SCL_OLED);
     #elif BOARD_MODEL == BOARD_XIAO_S3
       Wire.begin(SDA_OLED, SCL_OLED);
+    #elif BOARD_MODEL == BOARD_MINIMESH_LITE || BOARD_MODEL == BOARD_MICROMESH
+      Wire.setPins(SDA_OLED, SCL_OLED);
+      Wire.begin();
     #endif
 
     #if HAS_EEPROM
@@ -431,14 +441,14 @@ bool display_init() {
     // set white as default pixel colour for Heltec T114
     display.setRGB(COLOR565(0xFF, 0xFF, 0xFF));
     if (false) {
-    #elif BOARD_MODEL == BOARD_TBEAM_S_V1
+    #elif BOARD_MODEL == BOARD_TBEAM_S_V1 || BOARD_MODEL == BOARD_MINIMESH_LITE || BOARD_MODEL == BOARD_MICROMESH
     if (!display.begin(display_address, true)) {
     #else
     if (!display.begin(SSD1306_SWITCHCAPVCC, display_address)) {
     #endif
       return false;
     } else {
-      #if DISPLAY == OLED
+      #if DISPLAY == OLED || DISPLAY == MONO_OLED
         set_contrast(&display, display_contrast);
       #endif
       if (display_rotation != 0xFF) {
@@ -485,6 +495,9 @@ bool display_init() {
             disp_mode = DISP_MODE_PORTRAIT;
             display.setRotation(1);
           #elif BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL
+            disp_mode = DISP_MODE_LANDSCAPE;
+            display.setRotation(0);
+          #elif BOARD_MODEL == BOARD_MINIMESH_LITE || BOARD_MODEL == BOARD_MICROMESH
             disp_mode = DISP_MODE_LANDSCAPE;
             display.setRotation(0);
           #elif BOARD_MODEL == BOARD_TDECK
@@ -1068,9 +1081,9 @@ void update_disp_area() {
 }
 
 void display_recondition() {
-  #if DISPLAY == OLED
+  #if DISPLAY == OLED || DISPLAY == MONO_OLED
     for (uint8_t iy = 0; iy < disp_area.height(); iy++) {
-      unsigned char rand_seg [] = {random(0xFF),random(0xFF),random(0xFF),random(0xFF),random(0xFF),random(0xFF),random(0xFF),random(0xFF)};
+      unsigned char rand_seg [] = {(unsigned char)random(0xFF),(unsigned char)random(0xFF),(unsigned char)random(0xFF),(unsigned char)random(0xFF),(unsigned char)random(0xFF),(unsigned char)random(0xFF),(unsigned char)random(0xFF),(unsigned char)random(0xFF)};
       stat_area.drawBitmap(0, iy, rand_seg, 64, 1, DISPLAY_WHITE, DISPLAY_BLACK);
       disp_area.drawBitmap(0, iy, rand_seg, 64, 1, DISPLAY_WHITE, DISPLAY_BLACK);
     }

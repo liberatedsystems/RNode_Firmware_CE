@@ -152,7 +152,14 @@ firmware-rak4631_sx1280:
 firmware-opencom-xl:
 	arduino-cli compile --fqbn rakwireless:nrf52:WisCoreRAK4631Board $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x52\" \"-DBOARD_VARIANT=0x21\""
 
+firmware-minimesh_lite:
+	arduino-cli compile --log --fqbn adafruit:nrf52:pca10056 -e --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x61\""
+
+firmware-micromesh:
+	arduino-cli compile --log --fqbn adafruit:nrf52:pca10056 -e --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x62\""
+
 firmware-heltec_t114:
+	python3 ./Scripts/heltec_nrf52_bsp_prep.py
 	arduino-cli compile --log --fqbn Heltec_nRF52:Heltec_nRF52:HT-n5262 -e --build-property "build.partitions=no_ota" --build-property "upload.maximum_size=2097152" --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x3C\""
 
 firmware-heltec_t114_gps:
@@ -256,9 +263,16 @@ upload-featheresp32:
 	@sleep 3
 	python ./Release/esptool/esptool.py --port $(or $(port), /dev/ttyUSB0) $(COMMON_UPLOAD_FLAGS) ./Release/console_image.bin
 
+upload-minimesh_lite upload-micromesh:
+	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn adafruit:nrf52:pca10056
+	unzip -o build/adafruit.nrf52.pca10056/RNode_Firmware_CE.ino.zip -d build/adafruit.nrf52.pca10056
+	@sleep 3
+	rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(sha256sum ./build/adafruit.nrf52.pca10056/RNode_Firmware_CE.ino.bin | grep -o '^\S*')
+
 upload-opencom-xl upload-rak4631:
 	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn rakwireless:nrf52:WisCoreRAK4631Board
 	unzip -o build/rakwireless.nrf52.WisCoreRAK4631Board/RNode_Firmware_CE.ino.zip -d build/rakwireless.nrf52.WisCoreRAK4631Board
+	@sleep 3
 	rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(sha256sum ./build/rakwireless.nrf52.WisCoreRAK4631Board/RNode_Firmware_CE.ino.bin | grep -o '^\S*')
 
 upload-e22_esp32:
@@ -521,6 +535,16 @@ release-opencom-xl:
 	arduino-cli compile --fqbn rakwireless:nrf52:WisCoreRAK4631Board $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x52\" \"-DBOARD_VARIANT=0x21\""
 	cp build/rakwireless.nrf52.WisCoreRAK4631Board/RNode_Firmware_CE.ino.hex build/rnode_firmware_opencom_xl.hex
 	adafruit-nrfutil dfu genpkg --dev-type 0x0052 --application build/rnode_firmware_opencom_xl.hex Release/rnode_firmware_opencom_xl.zip
+
+release-minimesh_lite:
+	arduino-cli compile --fqbn rakwireless:nrf52:WisCoreRAK4631Board $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x61\""
+	cp build/rakwireless.nrf52.WisCoreRAK4631Board/RNode_Firmware_CE.ino.hex build/rnode_firmware_minimesh_lite.hex
+	adafruit-nrfutil dfu genpkg --dev-type 0x0052 --application build/rnode_firmware_minimesh_lite.hex Release/rnode_firmware_minimesh_lite.zip
+
+release-micromesh:
+	arduino-cli compile --fqbn rakwireless:nrf52:WisCoreRAK4631Board $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x62\""
+	cp build/rakwireless.nrf52.WisCoreRAK4631Board/RNode_Firmware_CE.ino.hex build/rnode_firmware_micromesh.hex
+	adafruit-nrfutil dfu genpkg --dev-type 0x0052 --application build/rnode_firmware_micromesh.hex Release/rnode_firmware_micromesh.zip
 	rm -r build
 
 release-heltec_t114:

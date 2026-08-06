@@ -123,6 +123,14 @@
   #define MODEL_16            0x16 // T-Echo 433 MHz
   #define MODEL_17            0x17 // T-Echo 868/915 MHz
 
+  #define PRODUCT_DEEPLAB     0x60 // Deeplab Studio
+  #define BOARD_MINIMESH_LITE 0x61
+  #define BOARD_MICROMESH     0x62
+  #define MODEL_52            0x52 // MiniMesh Lite 433 MHz
+  #define MODEL_62            84 // MiniMesh Lite 868 MHz (Decimal 84)
+  #define MODEL_53            0x53 // MicroMesh 433 MHz
+  #define MODEL_64            85 // MicroMesh 868 MHz (Decimal 85)
+
   #define PRODUCT_HMBRW       0xF0
   #define BOARD_HMBRW         0x32
   #define BOARD_HUZZAH32      0x34
@@ -1189,6 +1197,69 @@
       #define PIN_VEXT_EN _PINNUM(0, 12)
       const int pin_led_rx = PIN_LED_BLUE;
       const int pin_led_tx = PIN_LED_RED;
+
+    #elif BOARD_MODEL == BOARD_MINIMESH_LITE || BOARD_MODEL == BOARD_MICROMESH
+      #define HAS_EEPROM false
+      #define HAS_DISPLAY true
+      #define DISPLAY MONO_OLED
+      #define HAS_BLUETOOTH false
+      #define HAS_BLE true
+      #define HAS_CONSOLE false
+      #define HAS_PMU false
+      #define HAS_NP false
+      #define HAS_SD false
+      #define CONFIG_UART_BUFFER_SIZE 6144
+      #define CONFIG_QUEUE_0_SIZE 6144
+      #define HAS_INPUT true
+      #define CONFIG_QUEUE_MAX_LENGTH 200
+      #define EEPROM_SIZE 296
+      #define EEPROM_OFFSET EEPROM_SIZE-EEPROM_RESERVED
+      
+      #define BLE_MANUFACTURER "Deeplab Studio"
+      #if BOARD_MODEL == BOARD_MINIMESH_LITE
+        #define BLE_MODEL "MiniMesh Lite"
+      #else
+        #define BLE_MODEL "MicroMesh"
+      #endif
+
+      #define INTERFACE_COUNT 1
+
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
+      const bool interface_cfg[INTERFACE_COUNT][3] = { 
+          {
+              false, // DEFAULT_SPI
+              false, // HAS_TCXO
+              true   // DIO2_AS_RF_SWITCH
+          }
+      };
+
+      const int8_t interface_pins[INTERFACE_COUNT][10] = { 
+          {
+              45, // pin_ss
+              43, // pin_sclk
+              47, // pin_mosi
+               2, // pin_miso
+              29, // pin_busy
+              10, // pin_dio
+               9, // pin_reset
+              -1, // pin_txen
+              17, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
+
+
+
+      const int pin_led_rx = 33; // Dummy pin to prevent crash
+      const int pin_led_tx = 34; // Dummy pin to prevent crash
+      const int pin_btn_usr1 = 32;
+
+      #define I2C_SCL 11
+      #define I2C_SDA 36
+      
+      #define PIN_GPS_RX 20
+      #define PIN_GPS_TX 22
+      #define PIN_GPS_EN 24
 
     #elif BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL
       #define HAS_EEPROM false

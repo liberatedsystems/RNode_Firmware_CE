@@ -62,6 +62,26 @@
   bool bat_voltage_dropping = false;
   float bat_delay_v = 0;
   float bat_state_change_v = 0;
+#elif BOARD_MODEL == BOARD_MINIMESH_LITE || BOARD_MODEL == BOARD_MICROMESH
+  #include "nrfx_power.h"
+  #define BAT_C_SAMPLES   7
+  #define BAT_D_SAMPLES   2
+  #define BAT_V_MIN       3.15
+  #define BAT_V_MAX       4.2
+  #define BAT_V_FLOAT     4.22
+  #define BAT_SAMPLES     5
+  #define VBAT_MV_PER_LSB (0.73242188F)
+  #define VBAT_DIVIDER_COMP (1.66666666F)
+  #define VBAT_MV_PER_LSB_FIN (VBAT_DIVIDER_COMP * VBAT_MV_PER_LSB)
+  #define PIN_VBAT 31
+  float bat_p_samples[BAT_SAMPLES];
+  float bat_v_samples[BAT_SAMPLES];
+  uint8_t bat_samples_count = 0;
+  int bat_discharging_samples = 0;
+  int bat_charging_samples = 0;
+  int bat_charged_samples = 0;
+  bool bat_voltage_dropping = false;
+  float bat_delay_v = 0;
 #elif BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL
   #include "nrfx_power.h"
   #define BAT_C_SAMPLES   7

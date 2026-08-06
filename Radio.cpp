@@ -121,6 +121,9 @@ bool sx126x::preInit() {
     _spiModem->begin();
   }
   #else
+    #if BOARD_MODEL == BOARD_MINIMESH_LITE || BOARD_MODEL == BOARD_MICROMESH
+      _spiModem->setPins(_miso, _sclk, _mosi);
+    #endif
     _spiModem->begin();
   #endif
 
