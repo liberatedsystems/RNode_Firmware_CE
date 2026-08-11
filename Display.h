@@ -1070,9 +1070,14 @@ void update_disp_area() {
 void display_recondition() {
   #if DISPLAY == OLED
     for (uint8_t iy = 0; iy < disp_area.height(); iy++) {
-      unsigned char rand_seg [] = {random(0xFF),random(0xFF),random(0xFF),random(0xFF),random(0xFF),random(0xFF),random(0xFF),random(0xFF)};
-      stat_area.drawBitmap(0, iy, rand_seg, 64, 1, DISPLAY_WHITE, DISPLAY_BLACK);
-      disp_area.drawBitmap(0, iy, rand_seg, 64, 1, DISPLAY_WHITE, DISPLAY_BLACK);
+      unsigned char rand_seg [] = {
+        static_cast<unsigned char>(random(0xFF)), static_cast<unsigned char>(random(0xFF)),
+        static_cast<unsigned char>(random(0xFF)), static_cast<unsigned char>(random(0xFF)),
+        static_cast<unsigned char>(random(0xFF)), static_cast<unsigned char>(random(0xFF)),
+        static_cast<unsigned char>(random(0xFF)), static_cast<unsigned char>(random(0xFF))
+      };
+      stat_area.drawBitmap(0, iy, rand_seg, 64, 1, SSD1306_WHITE, SSD1306_BLACK);
+      disp_area.drawBitmap(0, iy, rand_seg, 64, 1, SSD1306_WHITE, SSD1306_BLACK);
     }
 
     drawBitmap(p_ad_x, p_ad_y, disp_area.getBuffer(), disp_area.width(), disp_area.height(), DISPLAY_WHITE, DISPLAY_BLACK);
