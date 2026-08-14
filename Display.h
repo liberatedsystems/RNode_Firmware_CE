@@ -98,7 +98,7 @@ void busyCallback(const void* p) { display_callback(); }
   #define SDA_OLED 18
   #endif
 #elif BOARD_MODEL == BOARD_MINIMESH_LITE || BOARD_MODEL == BOARD_MICROMESH
-  #if DISPLAY == MONO_OLED
+  #if DISPLAY == MONO_OLED || DISPLAY == OLED
   #define DISP_RST -1
   #define DISP_ADDR 0x3C
   #define SCL_OLED 11

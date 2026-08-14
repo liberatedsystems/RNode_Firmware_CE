@@ -1201,7 +1201,9 @@
     #elif BOARD_MODEL == BOARD_MINIMESH_LITE || BOARD_MODEL == BOARD_MICROMESH
       #define HAS_EEPROM false
       #define HAS_DISPLAY true
-      #define DISPLAY MONO_OLED
+      #ifndef DISPLAY
+        #define DISPLAY MONO_OLED
+      #endif
       #define HAS_BLUETOOTH false
       #define HAS_BLE true
       #define HAS_CONSOLE false

@@ -153,10 +153,10 @@ firmware-opencom-xl:
 	arduino-cli compile --fqbn rakwireless:nrf52:WisCoreRAK4631Board $(COMMON_BUILD_FLAGS) --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x52\" \"-DBOARD_VARIANT=0x21\""
 
 firmware-minimesh_lite:
-	arduino-cli compile --log --fqbn adafruit:nrf52:pca10056 -e --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x61\""
+	arduino-cli compile --log --fqbn adafruit:nrf52:pca10056 -e --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x61 $(EXTRA_FLAGS)\""
 
 firmware-micromesh:
-	arduino-cli compile --log --fqbn adafruit:nrf52:pca10056 -e --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x62\""
+	arduino-cli compile --log --fqbn adafruit:nrf52:pca10056 -e --build-property "compiler.cpp.extra_flags=\"-DBOARD_MODEL=0x62 $(EXTRA_FLAGS)\""
 
 firmware-heltec_t114:
 	python3 ./Scripts/heltec_nrf52_bsp_prep.py
