@@ -98,7 +98,7 @@ public:
     _csma_slot_ms(CSMA_SLOT_MIN_MS),
     _preambleLength(LORA_PREAMBLE_SYMBOLS_MIN), _lora_symbol_time_ms(0.0),
     _lora_preamble_time_ms(0), _lora_header_time_ms(0), _lora_symbol_rate(0.0), _lora_us_per_byte(0.0), _bitrate(0),
-     _packet{0}, _onReceive(NULL), _txp(0), _ldro(false), _limit_rate(false), _interference_detected(false), _avoid_interference(true), _difs_ms(CSMA_SIFS_MS + 2 * _csma_slot_ms), _difs_wait_start(0), _cw_wait_start(0), _cw_wait_target(0), _cw_wait_passed(0), _csma_cw(-1), _cw_band(1), _cw_min(0), _cw_max(CSMA_CW_PER_BAND_WINDOWS), _noise_floor_sampled(false), _noise_floor_sample(0), _noise_floor_buffer({0}), _noise_floor(-292), _led_id_filter(0), _preamble_detected_at(0) {};
+     _packet{0}, _onReceive(NULL), _txp(0), _ldro(false), _limit_rate(false), _interference_detected(false), _avoid_interference(true), _difs_ms(CSMA_SIFS_MS + 2 * _csma_slot_ms), _difs_wait_start(0), _cw_wait_start(0), _cw_wait_target(0), _cw_wait_passed(0), _csma_cw(-1), _cw_band(1), _cw_min(0), _cw_max(CSMA_CW_PER_BAND_WINDOWS), _noise_floor_sampled(false), _noise_floor_sample(0), _noise_floor_buffer{0}, _noise_floor(-292), _led_id_filter(0), _preamble_detected_at(0) {};
 
     virtual void reset() = 0;
 
