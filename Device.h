@@ -143,11 +143,26 @@ void device_save_firmware_hash() {
 }
 
 #if MCU_VARIANT == MCU_NRF52
+// Supplied by the nRF52 linker script. __etext is the end of .text in flash,
+// and the initialised .data image is stored immediately after it, so the
+// application occupies [APPLICATION_START, __etext + sizeof(.data)).
+//
+// This replaces a read of IMG_SIZE_START (0xFF008), which is not populated by
+// serial DFU, by UF2 drag-and-drop, or by arduino-cli upload - so the region
+// being hashed was wrong, fw_signature_validated stayed false on a correctly
+// flashed board, hw_ready was never set, and the radio silently never started.
+//
+// Taking the value from the linker means it is baked into the image at compile
+// time by the same toolchain that produced the binary: it needs no flashing
+// tool to write it, no protocol command to carry it, and nowhere to store it,
+// so it is correct however the board was flashed.
+extern uint32_t __etext;
+extern uint32_t __data_start__;
+extern uint32_t __data_end__;
+
 uint32_t retrieve_application_size() {
-    uint8_t bytes[4];
-    memcpy(bytes, (const void*)IMG_SIZE_START, 4);
-    uint32_t fw_len = bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24;
-    return fw_len;
+    uint32_t data_len = (uint32_t)&__data_end__ - (uint32_t)&__data_start__;
+    return ((uint32_t)&__etext + data_len) - APPLICATION_START;
 }
 
 void calculate_region_hash(unsigned long long start, unsigned long long end, uint8_t* return_hash) {
