@@ -426,7 +426,20 @@ void measure_battery() {
       battery_ready = false;
     }
 
-  #elif BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL
+#elif BOARD_MODEL == BOARD_XIAO_NRF
+    // VBAT_ENABLE (P0.14) must be LOW to engage the voltage divider and
+    // safely read the battery voltage on PIN_VBAT (P0.31). Leaving it HIGH
+    // exposes P0.31 to the raw battery voltage, risking pin damage.
+    battery_installed = true;
+    pinMode(14, OUTPUT);
+    digitalWrite(14, LOW);
+    bat_v_samples[bat_samples_count%BAT_SAMPLES] = (float)(analogRead(PIN_VBAT)) * VBAT_MV_PER_LSB_FIN;
+    bat_samples_count++;
+    battery_voltage = bat_v_samples[bat_samples_count%BAT_SAMPLES];
+    battery_ready = true;
+    kiss_indicate_battery(); 
+
+ #elif BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL
     battery_installed = true;
     battery_indeterminate = false;
 

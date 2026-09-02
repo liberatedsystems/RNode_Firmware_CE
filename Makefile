@@ -302,7 +302,17 @@ upload-techo:
 upload-xiao_nrf:
 	arduino-cli upload -p $(or $(port), /dev/ttyACM0) --fqbn Seeeduino:nrf52:xiaonRF52840
 	@sleep 6
-	rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(./partition_hashes from_device $(or $(port), /dev/ttyACM0))
+	unzip -o build/Seeeduino.nrf52.xiaonRF52840/RNode_Firmware_CE.ino.zip -d build/Seeeduino.nrf52.xiaonRF52840
+	@echo
+	@echo If this is a fresh, unprovisioned device, you must bootstrap the EEPROM first with:
+	@echo   $(VENV_BIN)/rnodeconf $(or $(port), /dev/ttyACM0) -r --platform NRF52 --model 19 --product 18 --hwrev 1
+	@echo This only needs to be done once per physical device.
+	@echo
+	$(VENV_BIN)/rnodeconf $(or $(port), /dev/ttyACM0) --firmware-hash $$(sha256sum ./build/Seeeduino.nrf52.xiaonRF52840/RNode_Firmware_CE.ino.bin | grep -o '^\S*')
+	@echo
+	@echo Now you can set LoRa parameters, for example: 
+	@echo $(VENV_BIN)/rnodeconf $(or $(port), /dev/ttyACM0) --freq 869556000 --bw 62500 --sf 8 --cr 5
+	@echo
 
 release:  console-site spiffs-image $(shell grep ^release- Makefile | cut -d: -f1)
 

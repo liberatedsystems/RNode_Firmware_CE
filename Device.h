@@ -33,7 +33,10 @@
 // https://learn.adafruit.com/introducing-the-adafruit-nrf52840-feather/hathach-memory-map
 // each section follows along from one another, in this order
 // this is always at the start of the memory map
-#define APPLICATION_START 0x26000
+
+#ifndef APPLICATION_START
+  #define APPLICATION_START 0x26000
+#endif
 
 #define USER_DATA_START 0xED000
 
@@ -143,12 +146,14 @@ void device_save_firmware_hash() {
 }
 
 #if MCU_VARIANT == MCU_NRF52
+extern uint32_t __etext;
+extern uint32_t __data_start__;
+extern uint32_t __data_end__;
 uint32_t retrieve_application_size() {
-    uint8_t bytes[4];
-    memcpy(bytes, (const void*)IMG_SIZE_START, 4);
-    uint32_t fw_len = bytes[0] | bytes[1] << 8 | bytes[2] << 16 | bytes[3] << 24;
-    return fw_len;
+    uint32_t data_len = (uint32_t)&__data_end__ - (uint32_t)&__data_start__;
+    return ((uint32_t)&__etext + data_len) - APPLICATION_START;
 }
+
 
 void calculate_region_hash(unsigned long long start, unsigned long long end, uint8_t* return_hash) {
     // this function calculates the hash digest of a region of memory,

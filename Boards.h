@@ -1465,6 +1465,10 @@
       #endif
 
     #elif BOARD_MODEL == BOARD_XIAO_NRF
+      // This board's bootloader (Adafruit_nRF52_Bootloader_OTAFIX) reserves
+      // an additional flash page compared to the default Adafruit bootloader,
+      // shifting the application start address by 0x1000 bytes.
+      #define APPLICATION_START 0x27000
       #define HAS_EEPROM false
       #define HAS_DISPLAY false
       #define HAS_BLUETOOTH false
