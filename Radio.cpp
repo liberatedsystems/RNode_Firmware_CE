@@ -292,6 +292,13 @@ void sx126x::setModulationParams(uint8_t sf, uint8_t bw, uint8_t cr, int ldro) {
   buf[7] = 0x00;
 
   executeOpcode(OP_MODULATION_PARAMS_6X, buf, 8);
+
+  // SX1262 errata 15.1: SetModulationParams resets register 0x0889, so the
+  // workaround has to be re-applied after every call, not only from
+  // setSignalBandwidth(). CMD_SF and CMD_CR reach this while the radio is
+  // running, so without this the bit is silently lost on any spreading-factor
+  // or coding-rate change made by the host.
+  optimizeModemSensitivity();
 }
 
 void sx126x::setPacketParams(uint32_t preamble, uint8_t headermode, uint8_t length, uint8_t crc) {
@@ -312,6 +319,18 @@ void sx126x::setPacketParams(uint32_t preamble, uint8_t headermode, uint8_t leng
   buf[8] = 0x00; 
 
   executeOpcode(OP_PACKET_PARAMS_6X, buf, 9);
+
+  // SX1262 errata 15.4 (Optimizing the Inverted IQ Operation): SetPacketParams
+  // resets bit 2 of register 0x0736 to the wrong value. For standard IQ - what
+  // buf[5] = 0x00 above selects - the bit must be SET after every call; for
+  // inverted IQ it must be cleared. Left unapplied, receive can fail while
+  // transmit keeps working, which is the hardest way round to diagnose.
+  uint8_t iq_reg = readRegister(0x0736);
+  if (buf[5] == 0x00) {
+    writeRegister(0x0736, iq_reg | 0x04);
+  } else {
+    writeRegister(0x0736, iq_reg & ~0x04);
+  }
 }
 
 void sx126x::reset(void) {
@@ -365,10 +384,16 @@ int sx126x::begin()
 
   if (_rxen != -1) { pinMode(_rxen, OUTPUT); }
 
+  // The TCXO has to be powered and settled BEFORE calibration, not after it.
+  // On a board with a TCXO, DIO3 supplies it, and calibrating first trims the
+  // radio against whatever reference is running at that moment - leaving a
+  // frequency offset that is never reported as an error and shows up only as
+  // reduced range. Boards without a TCXO are unaffected: enableTCXO() returns
+  // immediately when _tcxo is false.
+  enableTCXO();
+
   calibrate();
   calibrate_image(_frequency);
-
-  enableTCXO();
 
   loraMode();
   standby();
@@ -828,7 +853,19 @@ void sx126x::handleLowDataRate(){
 }
 
 void sx126x::optimizeModemSensitivity(){
-    // todo: check if there's anything the sx1262 can do here
+  // SX1262 errata 15.1, "Modulation Quality with 500 kHz LoRa Bandwidth".
+  // Bit 2 of register 0x0889 must be CLEARED when transmitting at 500 kHz
+  // bandwidth and SET at every other bandwidth. The datasheet describes the
+  // consequence as degraded modulation quality on the transmitted signal.
+  //
+  // This is a TX-side fix despite the function's name, which was inherited
+  // from the sx127x member it sits beside.
+  uint8_t reg = readRegister(0x0889);
+  if (getSignalBandwidth() == 500E3) {
+    writeRegister(0x0889, reg & 0xFB);   // clear bit 2
+  } else {
+    writeRegister(0x0889, reg | 0x04);   // set bit 2
+  }
 }
 
 void sx126x::setSignalBandwidth(uint32_t sbw)
