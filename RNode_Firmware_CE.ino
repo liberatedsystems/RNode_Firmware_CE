@@ -312,6 +312,13 @@ void setup() {
     delay(100);
   #endif
 
+  #if BOARD_MODEL == BOARD_XIAO_S3
+    // Backport upstream XIAO-S3 reset-before-preInit workaround
+    delay(300);
+    interface_obj[0]->reset();
+    delay(100);
+  #endif
+
     // Check installed transceiver chip(s) and probe boot parameters. If any of
     // the configured modems cannot be initialised, do not boot
     for (int i = 0; i < INTERFACE_COUNT; i++) {
