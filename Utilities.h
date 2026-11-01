@@ -354,6 +354,14 @@ uint8_t boot_vector = 0x00;
     void led_tx_off() { digitalWrite(pin_led_tx, HIGH); }
 		void led_id_on()  { }
 		void led_id_off() { }
+  #elif BOARD_MODEL == BOARD_HELTEC_MESHP
+    // MeshPocket LED is active-low (Meshtastic LED_STATE_ON 0)
+    void led_rx_on()  { digitalWrite(pin_led_rx, LED_ON); }
+    void led_rx_off() { digitalWrite(pin_led_rx, LED_OFF); }
+    void led_tx_on()  { digitalWrite(pin_led_tx, LED_ON); }
+    void led_tx_off() { digitalWrite(pin_led_tx, LED_OFF); }
+    void led_id_on()  { }
+    void led_id_off() { }
   #elif BOARD_MODEL == BOARD_TECHO
 		void led_rx_on()  { digitalWrite(pin_led_rx, LED_ON); }
 		void led_rx_off() {	digitalWrite(pin_led_rx, LED_OFF); }
@@ -1276,6 +1284,8 @@ void setTXPower(RadioInterface* radio, int txp) {
     if (model == MODEL_C6) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
     if (model == MODEL_C7) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
     if (model == MODEL_CA) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
+    if (model == MODEL_CD) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
+    if (model == MODEL_CE) radio->setTxPower(txp, PA_OUTPUT_RFO_PIN);
 
     if (model == MODEL_D4) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
     if (model == MODEL_D9) radio->setTxPower(txp, PA_OUTPUT_PA_BOOST_PIN);
@@ -1365,6 +1375,66 @@ void promisc_disable() {
 }
 
 #if !HAS_EEPROM && MCU_VARIANT == MCU_NRF52
+  #if BOARD_MODEL == BOARD_HELTEC_MESHP
+  // RAM EEPROM with factory defaults so the radio can come online without
+  // rnodeconf InternalFS provisioning (SoftDevice path is unstable here).
+  static uint8_t meshp_eeprom[EEPROM_SIZE];
+  static bool meshp_eeprom_ready = false;
+  bool eeprom_begin() {
+    if (!meshp_eeprom_ready) {
+      memset(meshp_eeprom, 0xFF, EEPROM_SIZE);
+      meshp_eeprom[eeprom_addr(ADDR_PRODUCT)] = PRODUCT_HELTEC_MESHP;
+      meshp_eeprom[eeprom_addr(ADDR_MODEL)] = MODEL_CE;
+      meshp_eeprom[eeprom_addr(ADDR_HW_REV)] = 0x01;
+      meshp_eeprom[eeprom_addr(ADDR_SERIAL)+0] = 0x00;
+      meshp_eeprom[eeprom_addr(ADDR_SERIAL)+1] = 0x00;
+      meshp_eeprom[eeprom_addr(ADDR_SERIAL)+2] = 0x00;
+      meshp_eeprom[eeprom_addr(ADDR_SERIAL)+3] = 0x01;
+      uint32_t made = 0x68000000UL; // arbitrary timestamp
+      meshp_eeprom[eeprom_addr(ADDR_MADE)+0] = (made >> 24) & 0xFF;
+      meshp_eeprom[eeprom_addr(ADDR_MADE)+1] = (made >> 16) & 0xFF;
+      meshp_eeprom[eeprom_addr(ADDR_MADE)+2] = (made >> 8) & 0xFF;
+      meshp_eeprom[eeprom_addr(ADDR_MADE)+3] = made & 0xFF;
+      char data[CHECKSUMMED_SIZE];
+      for (uint8_t i = 0; i < CHECKSUMMED_SIZE; i++) {
+        data[i] = (char)meshp_eeprom[eeprom_addr(i)];
+      }
+      unsigned char *hash = MD5::make_hash(data, CHECKSUMMED_SIZE);
+      for (uint8_t i = 0; i < 16; i++) {
+        meshp_eeprom[eeprom_addr(ADDR_CHKSUM)+i] = hash[i];
+      }
+      free(hash);
+      meshp_eeprom[eeprom_addr(ADDR_INFO_LOCK)] = INFO_LOCK_BYTE;
+      // BLE + LoRa on by default so Sideband can connect without a prior USB step.
+      // RAM EEPROM resets every boot → state after restart is always this baseline.
+      meshp_eeprom[eeprom_addr(ADDR_CONF_BT)] = BT_ENABLE_BYTE;
+      meshp_eeprom[eeprom_addr(ADDR_CONF_RADIO)] = RADIO_ENABLE_BYTE;
+      // Seed EU 868 radio params so startRadio() unlocks without host CMD_CONF_SAVE.
+      {
+        uint32_t freq = MESHP_DEFAULT_FREQ;
+        uint32_t bw = MESHP_DEFAULT_BW;
+        meshp_eeprom[eeprom_addr(ADDR_CONF_SF)] = MESHP_DEFAULT_SF;
+        meshp_eeprom[eeprom_addr(ADDR_CONF_CR)] = MESHP_DEFAULT_CR;
+        meshp_eeprom[eeprom_addr(ADDR_CONF_TXP)] = MESHP_DEFAULT_TXP;
+        meshp_eeprom[eeprom_addr(ADDR_CONF_BW)+0] = (bw >> 24) & 0xFF;
+        meshp_eeprom[eeprom_addr(ADDR_CONF_BW)+1] = (bw >> 16) & 0xFF;
+        meshp_eeprom[eeprom_addr(ADDR_CONF_BW)+2] = (bw >> 8) & 0xFF;
+        meshp_eeprom[eeprom_addr(ADDR_CONF_BW)+3] = bw & 0xFF;
+        meshp_eeprom[eeprom_addr(ADDR_CONF_FREQ)+0] = (freq >> 24) & 0xFF;
+        meshp_eeprom[eeprom_addr(ADDR_CONF_FREQ)+1] = (freq >> 16) & 0xFF;
+        meshp_eeprom[eeprom_addr(ADDR_CONF_FREQ)+2] = (freq >> 8) & 0xFF;
+        meshp_eeprom[eeprom_addr(ADDR_CONF_FREQ)+3] = freq & 0xFF;
+        meshp_eeprom[eeprom_addr(ADDR_CONF_OK)] = CONF_OK_BYTE;
+      }
+      meshp_eeprom_ready = true;
+    }
+    return true;
+  }
+  uint8_t eeprom_read(uint32_t mapped_addr) {
+    if (mapped_addr >= EEPROM_SIZE) return 0xFF;
+    return meshp_eeprom[mapped_addr];
+  }
+  #else
   bool eeprom_begin() {
     InternalFS.begin();
 
@@ -1391,6 +1461,7 @@ void promisc_disable() {
       file.read(byte_ptr, 1);
       return byte;
   }
+  #endif
 #endif
 
 bool eeprom_info_locked() {
@@ -1448,9 +1519,13 @@ void kiss_dump_eeprom() {
 
 #if !HAS_EEPROM && MCU_VARIANT == MCU_NRF52
 void eeprom_flush() {
+  #if BOARD_MODEL == BOARD_HELTEC_MESHP
+    written_bytes = 0;
+  #else
     file.close();
     file.open(EEPROM_FILE, FILE_O_WRITE);
     written_bytes = 0;
+  #endif
 }
 #endif
 
@@ -1460,6 +1535,10 @@ void eeprom_update(int mapped_addr, uint8_t byte) {
 			EEPROM.write(mapped_addr, byte);
 			EEPROM.commit();
 		}
+  #elif !HAS_EEPROM && MCU_VARIANT == MCU_NRF52 && BOARD_MODEL == BOARD_HELTEC_MESHP
+    if (mapped_addr >= 0 && mapped_addr < (int)EEPROM_SIZE) {
+      meshp_eeprom[mapped_addr] = byte;
+    }
   #elif !HAS_EEPROM && MCU_VARIANT == MCU_NRF52
     // todo: clean up this implementation, writing one byte and syncing
     // each time is really slow
@@ -1517,7 +1596,7 @@ bool eeprom_product_valid() {
 	#if PLATFORM == PLATFORM_ESP32
 	if (rval == PRODUCT_RNODE || rval == BOARD_RNODE_NG_20 || rval == BOARD_RNODE_NG_21 || rval == PRODUCT_HMBRW || rval == PRODUCT_TBEAM || rval == PRODUCT_T32_10 || rval == PRODUCT_T32_20 || rval == PRODUCT_T32_21 || rval == PRODUCT_H32_V2 || rval == PRODUCT_H32_V3 || rval == PRODUCT_TDECK_V1 || rval == PRODUCT_TBEAM_S_V1 || rval == PRODUCT_H_W_PAPER || rval == PRODUCT_XIAO_S3) {
 	#elif PLATFORM == PLATFORM_NRF52
-	if (rval == PRODUCT_RAK4631 || rval == PRODUCT_HELTEC_T114 || rval == PRODUCT_OPENCOM_XL || rval == PRODUCT_TECHO || rval == PRODUCT_HMBRW) {
+	if (rval == PRODUCT_RAK4631 || rval == PRODUCT_HELTEC_T114 || rval == PRODUCT_HELTEC_MESHP || rval == PRODUCT_OPENCOM_XL || rval == PRODUCT_TECHO || rval == PRODUCT_HMBRW) {
 	#else
 	if (false) {
 	#endif
@@ -1566,7 +1645,9 @@ bool eeprom_model_valid() {
     #elif BOARD_MODEL == BOARD_H_W_PAPER
     if (model == MODEL_C8) {
     #elif BOARD_MODEL == BOARD_HELTEC_T114
-    if (model == MODEL_C6 || model == MODEL_C7) {
+    if (model == MODEL_C6 || model == MODEL_C7 || model == MODEL_CB) {
+    #elif BOARD_MODEL == BOARD_HELTEC_MESHP
+    if (model == MODEL_CD || model == MODEL_CE) {
     #elif BOARD_MODEL == BOARD_RAK4631
     if (model == MODEL_11 || model == MODEL_12 || model == MODEL_13 || model == MODEL_14) {
     #elif BOARD_MODEL == BOARD_OPENCOM_XL
@@ -1645,6 +1726,26 @@ void bt_conf_save(bool is_enabled) {
       eeprom_flush();
     #endif
 	}
+}
+
+void radio_conf_save(bool is_enabled) {
+	if (is_enabled) {
+		eeprom_update(eeprom_addr(ADDR_CONF_RADIO), RADIO_ENABLE_BYTE);
+	} else {
+		eeprom_update(eeprom_addr(ADDR_CONF_RADIO), 0x00);
+	}
+	#if !HAS_EEPROM && MCU_VARIANT == MCU_NRF52
+		eeprom_flush();
+	#endif
+}
+
+bool radio_conf_enabled() {
+	// Explicit 0x00 = user disabled; anything else (incl. unset 0xFF) = enabled.
+	#if HAS_EEPROM
+		return EEPROM.read(eeprom_addr(ADDR_CONF_RADIO)) != 0x00;
+	#else
+		return eeprom_read(eeprom_addr(ADDR_CONF_RADIO)) != 0x00;
+	#endif
 }
 
 void di_conf_save(uint8_t dint) {

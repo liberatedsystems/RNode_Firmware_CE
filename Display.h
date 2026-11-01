@@ -119,6 +119,12 @@ void busyCallback(const void* p) { display_callback(); }
   #define DISP_W 128
   #define DISP_H 64
   #define DISP_ADDR -1
+#elif BOARD_MODEL == BOARD_HELTEC_MESHP
+  // E-ink on SPIM1 (Meshtastic SPI1); LoRa on SPIM3; SoftDevice keeps SPIM0 freer
+  SPIClass displaySPI = SPIClass(NRF_SPIM1, pin_disp_miso, pin_disp_sck, pin_disp_mosi);
+  #define DISP_W 250
+  #define DISP_H 122
+  #define DISP_ADDR -1
 #elif BOARD_MODEL == BOARD_TBEAM_S_V1
   #define DISP_RST -1
   #define DISP_ADDR 0x3C
@@ -159,8 +165,9 @@ void busyCallback(const void* p) { display_callback(); }
   uint32_t last_epd_full_refresh = 0;
   #define REFRESH_PERIOD 600000 // 10 minutes in ms
   #endif
-#elif BOARD_MODEL == BOARD_TECHO
+#elif BOARD_MODEL == BOARD_TECHO || BOARD_MODEL == BOARD_HELTEC_MESHP
 GxEPD2_BW<DISPLAY_MODEL, DISPLAY_MODEL::HEIGHT> display(DISPLAY_MODEL(pin_disp_cs, pin_disp_dc, pin_disp_reset, pin_disp_busy));
+// MeshPocket panel ghosts easily — keep refresh conservative (Meshtastic ~0.03–1 Hz caps).
 float disp_target_fps = 0.2;
 uint32_t last_epd_refresh = 0;
 uint32_t last_epd_full_refresh = 0;
@@ -257,6 +264,28 @@ void update_area_positions() {
       p_as_x = 64;
       p_as_y = 0;
     }
+  #elif BOARD_MODEL == BOARD_HELTEC_MESHP
+    // GxEPD2_213_B74 after setRotation(3): 250 x 128 (122 visible).
+    // Landscape: two 64x64 tiles side-by-side → ~244x122; center in the buffer.
+    {
+      const int tile = (int)(64 * DISPLAY_SCALE + 0.5f);       // 122
+      const int content_w = tile * 2;                          // 244
+      const int content_h = tile;                              // 122
+      const int ox = (250 - content_w) / 2;                    // 3
+      const int oy = (128 - content_h) / 2;                    // 3
+      if (disp_mode == DISP_MODE_PORTRAIT) {
+        // Stacked: center the 122-wide column on the 250-wide panel
+        p_ad_x = (250 - tile) / 2;
+        p_ad_y = oy;
+        p_as_x = p_ad_x;
+        p_as_y = oy + tile;
+      } else {
+        p_ad_x = ox;
+        p_ad_y = oy;
+        p_as_x = ox + tile;
+        p_as_y = oy;
+      }
+    }
   #else
     if (disp_mode == DISP_MODE_PORTRAIT) {
       p_ad_x = 0 * DISPLAY_SCALE;
@@ -308,7 +337,7 @@ uint8_t display_contrast = 0x00;
     }
     level = value;
   }
-#elif BOARD_MODEL == BOARD_OPENCOM_XL || BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_H_W_PAPER
+#elif BOARD_MODEL == BOARD_OPENCOM_XL || BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_H_W_PAPER || BOARD_MODEL == BOARD_HELTEC_MESHP
   // no backlight on these displays
   void set_contrast (void* display, uint8_t contrast) {};
 #else
@@ -375,6 +404,12 @@ bool display_init() {
         pinMode(pin_backlight, OUTPUT);
         analogWrite(pin_backlight, 0);
       #endif
+    #elif BOARD_MODEL == BOARD_HELTEC_MESHP
+      display.init(0, true, 10, false, displaySPI, SPISettings(4000000, MSBFIRST, SPI_MODE0));
+      // Full controller buffer (250x128 @ rot 3); visible area is 250x122
+      display.setRotation(3);
+      display.setPartialWindow(0, 0, display.width(), display.height());
+      display.epd2.setBusyCallback(busyCallback);
     #elif BOARD_MODEL == BOARD_TBEAM_S_V1
       Wire.begin(SDA_OLED, SCL_OLED);
     #elif BOARD_MODEL == BOARD_XIAO_S3
@@ -479,6 +514,10 @@ bool display_init() {
             disp_mode = DISP_MODE_PORTRAIT;
             #endif
           #elif BOARD_MODEL == BOARD_TECHO
+            disp_mode = DISP_MODE_LANDSCAPE;
+            display.setRotation(3);
+          #elif BOARD_MODEL == BOARD_HELTEC_MESHP
+            // Wide panel: landscape tiles fit 250x122; rotation 3 matches Meshtastic
             disp_mode = DISP_MODE_LANDSCAPE;
             display.setRotation(3);
           #elif BOARD_MODEL == BOARD_HELTEC32_V3
@@ -872,8 +911,14 @@ void update_stat_area() {
     if (disp_mode == DISP_MODE_PORTRAIT) {
       drawBitmap(p_as_x, p_as_y, stat_area.getBuffer(), stat_area.width(), stat_area.height(), DISPLAY_WHITE, DISPLAY_BLACK);
     } else if (disp_mode == DISP_MODE_LANDSCAPE) {
+      #if BOARD_MODEL == BOARD_HELTEC_MESHP
+      // Right tile (icons): invert for e-ink readability.
+      drawBitmap(p_as_x+2, p_as_y, stat_area.getBuffer(), stat_area.width(), stat_area.height(), DISPLAY_BLACK, DISPLAY_WHITE);
+      if (device_init_done && !disp_ext_fb) drawLine(p_as_x, 0, p_as_x, DISP_W/2, DISPLAY_BLACK);
+      #else
       drawBitmap(p_as_x+2, p_as_y, stat_area.getBuffer(), stat_area.width(), stat_area.height(), DISPLAY_WHITE, DISPLAY_BLACK);
       if (device_init_done && !disp_ext_fb) drawLine(p_as_x, 0, p_as_x, DISP_W/2, DISPLAY_WHITE);
+      #endif
     }
 
   } else {
@@ -888,8 +933,14 @@ void update_stat_area() {
   }
 }
 
+#if HAS_BLUETOOTH || HAS_BLE
 extern char bt_devname[11];
 extern char bt_dh[16];
+#else
+// Display UI shows device ID from BLE hash; stub when BLE is off.
+char bt_devname[11] = "RNode";
+char bt_dh[16] = {0};
+#endif
 
 void draw_disp_area() {
   if (!device_init_done || firmware_update_mode) {
@@ -988,6 +1039,22 @@ void draw_disp_area() {
         disp_area.printf("%02X%02X", bt_dh[14], bt_dh[15]);
       }
 
+      #if BOARD_MODEL == BOARD_HELTEC_MESHP
+      // Pairing PIN must win over hw_ready banners. Stay inside 64px canvas
+      // (size-2 text overflows and looks "cut off" next to the RF tile).
+      if (bt_state == BT_STATE_PAIRING && bt_ssp_pin != 0) {
+        char pin_str[8];
+        snprintf(pin_str, sizeof(pin_str), "%06lu", (unsigned long)bt_ssp_pin);
+        disp_area.fillRect(0, 37, disp_area.width(), 27, DISPLAY_WHITE);
+        disp_area.setFont();
+        disp_area.setTextSize(1);
+        disp_area.setTextColor(DISPLAY_BLACK);
+        disp_area.setCursor(4, 42);
+        disp_area.print("PIN");
+        disp_area.setCursor(4, 54);
+        disp_area.print(pin_str);
+      } else
+      #endif
       if (!hw_ready || !device_firmware_ok()) {
         if (!device_firmware_ok()) {
           disp_area.drawBitmap(0, 37, bm_fw_corrupt, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
@@ -1021,6 +1088,37 @@ void draw_disp_area() {
             disp_area.drawBitmap(0, 37, bm_online, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
           }
         } else {
+          #if BOARD_MODEL == BOARD_HELTEC_MESHP
+          // Hold UX legend when LoRa off (same model as stock RNode).
+          if (disp_page == 0) {
+            disp_area.fillRect(0, 37, disp_area.width(), 27, DISPLAY_WHITE);
+            disp_area.setFont();
+            disp_area.setTextSize(1);
+            disp_area.setTextColor(DISPLAY_BLACK);
+            disp_area.setCursor(2, 42); disp_area.print("tap BLE");
+            disp_area.setCursor(2, 52); disp_area.print("hold sleep/5s PIN");
+          } else if (disp_page == 1) {
+            if (!console_active) {
+              disp_area.drawBitmap(0, 37, bm_hwok, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
+            } else {
+              disp_area.drawBitmap(0, 37, bm_console_active, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
+            }
+          } else if (disp_page == 2) {
+            disp_area.drawBitmap(0, 37, bm_version, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
+            char *v_str = (char*)malloc(3+1);
+            sprintf(v_str, "%01d%02d", MAJ_VERS, MIN_VERS);
+            for (int i = 0; i < 3; i++) {
+              uint8_t numeric = v_str[i]-48; uint8_t bm_offset = numeric*5;
+              uint8_t dxp = 20;
+              if (i == 1) dxp += 9*1+4;
+              if (i == 2) dxp += 9*2+4;
+              disp_area.drawBitmap(dxp, 37+16, bm_n_uh+bm_offset, 8, 5, DISPLAY_WHITE, DISPLAY_BLACK);
+            }
+            free(v_str);
+            disp_area.drawLine(27, 37+19, 28, 37+19, DISPLAY_BLACK);
+            disp_area.drawLine(27, 37+20, 28, 37+20, DISPLAY_BLACK);
+          }
+          #else
           if (disp_page == 0) {
             if (true || device_signatures_ok()) {
               disp_area.drawBitmap(0, 37, bm_checks, disp_area.width(), 27, DISPLAY_WHITE, DISPLAY_BLACK);
@@ -1048,6 +1146,7 @@ void draw_disp_area() {
             disp_area.drawLine(27, 37+19, 28, 37+19, DISPLAY_BLACK);
             disp_area.drawLine(27, 37+20, 28, 37+20, DISPLAY_BLACK);
           }
+          #endif
         }
       }
     } else {
@@ -1171,8 +1270,27 @@ void update_display(bool blank = false) {
           display.fillScreen(DISPLAY_WHITE);
         #endif
 
-        update_stat_area();
-        update_disp_area();
+        #if BOARD_MODEL == BOARD_HELTEC_MESHP
+        // Full-panel PIN during pairing — both tiles would clip a 6-digit code.
+        if (bt_state == BT_STATE_PAIRING && bt_ssp_pin != 0) {
+          char pin_str[8];
+          snprintf(pin_str, sizeof(pin_str), "%06lu", (unsigned long)bt_ssp_pin);
+          display.fillScreen(DISPLAY_WHITE);
+          display.setTextColor(DISPLAY_BLACK);
+          display.setFont();
+          display.setTextSize(4);
+          // ~6 chars * 24px ≈ 144; center on 250-wide panel
+          display.setCursor((250 - 6 * 24) / 2, 28);
+          display.print(pin_str);
+          display.setTextSize(2);
+          display.setCursor(55, 88);
+          display.print(bt_devname);
+        } else
+        #endif
+        {
+          update_stat_area();
+          update_disp_area();
+        }
       }
       
       #if DISPLAY == EINK_BW || DISPLAY == EINK_3C
@@ -1195,6 +1313,36 @@ void update_display(bool blank = false) {
 void display_unblank() {
   last_unblank_event = millis();
 }
+
+#if BOARD_MODEL == BOARD_HELTEC_MESHP
+// E-Ink keeps this image after SYSTEMOFF — radios already stopped before draw.
+void meshp_draw_sleep_splash() {
+  display.setFullWindow();
+  display.fillScreen(DISPLAY_WHITE);
+  display.setTextColor(DISPLAY_BLACK);
+  display.setFont();
+  display.setTextSize(2);
+  display.setCursor(28, 18);
+  display.print("AIRPLANE");
+  display.setTextSize(1);
+  display.setCursor(40, 52);
+  display.print("BLE + LoRa off");
+  display.setCursor(52, 72);
+  display.print("CPU SYSTEMOFF");
+  display.setCursor(58, 96);
+  display.print("wake: USER");
+
+  display.display(false); // full refresh so image survives power-off
+  delay(400);
+}
+
+void meshp_force_display_refresh() {
+  last_epd_refresh = 0;
+  last_epd_full_refresh = 0;
+  last_disp_update = 0;
+  if (disp_ready) update_display();
+}
+#endif
 
 void ext_fb_enable() {
   disp_ext_fb = true;

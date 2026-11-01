@@ -16,6 +16,9 @@
 #include <Arduino.h>
 #include <SPI.h>
 #include "Utilities.h"
+#if BOARD_MODEL == BOARD_HELTEC_MESHP
+  #include "MeshpDebug.h"
+#endif
 
 #if MCU_VARIANT == MCU_NRF52
   #if BOARD_MODEL == BOARD_RAK4631 || BOARD_MODEL == BOARD_OPENCOM_XL
@@ -49,6 +52,16 @@
                 NRF_SPIM1, 
                 interface_pins[0][3], 
                 interface_pins[0][1], 
+                interface_pins[0][2]
+               )
+      };
+  #elif BOARD_MODEL == BOARD_HELTEC_MESHP
+    #define INTERFACE_SPI
+    SPIClass interface_spi[1] = {
+            SPIClass(
+                NRF_SPIM3,
+                interface_pins[0][3],
+                interface_pins[0][1],
                 interface_pins[0][2]
                )
       };
@@ -137,10 +150,29 @@ void setup() {
       pinMode(PIN_VEXT_EN, OUTPUT);
       digitalWrite(PIN_VEXT_EN, HIGH);
       delay(100);
+    #elif BOARD_MODEL == BOARD_HELTEC_MESHP
+      delay(200);
+      pinMode(pin_led_rx, OUTPUT);
+      digitalWrite(pin_led_rx, LED_OFF);
+      pinMode(pin_btn_usr1, INPUT_PULLUP);
+      Serial.begin(serial_baudrate);
+      delay(500);
+      Serial.println("MeshPocket RNode boot");
+      Serial.flush();
     #endif
 
 
-    if (!eeprom_begin()) { Serial.write("EEPROM initialisation failed.\r\n"); }
+    #if BOARD_MODEL == BOARD_HELTEC_MESHP
+      Serial.println("step: eeprom_begin");
+      Serial.flush();
+    #endif
+    if (!eeprom_begin()) {
+      Serial.write("EEPROM initialisation failed.\r\n");
+    }
+    #if BOARD_MODEL == BOARD_HELTEC_MESHP
+      Serial.println("step: eeprom_begin done");
+      Serial.flush();
+    #endif
   #endif
 
   // Seed the PRNG for CSMA R-value selection
@@ -148,6 +180,9 @@ void setup() {
     // On ESP32, get the seed value from the
     // hardware RNG
     unsigned long seed_val = (unsigned long)esp_random();
+  #elif BOARD_MODEL == BOARD_HELTEC_MESHP
+    // Prefer millis seed; bare NRF_RNG can hang on some Heltec builds.
+    unsigned long seed_val = millis() ^ micros() ^ 0xC0FFEEu;
   #elif MCU_VARIANT == MCU_NRF52
     // On nRF, get the seed value from the
     // hardware RNG
@@ -179,7 +214,7 @@ void setup() {
     boot_seq();
   #endif
 
-  #if BOARD_MODEL != BOARD_RAK4631 && BOARD_MODEL != BOARD_HELTEC_T114 && BOARD_MODEL != BOARD_TECHO && BOARD_MODEL != BOARD_T3S3 && BOARD_MODEL != BOARD_TBEAM_S_V1 && BOARD_MODEL != BOARD_OPENCOM_XL
+  #if BOARD_MODEL != BOARD_RAK4631 && BOARD_MODEL != BOARD_HELTEC_T114 && BOARD_MODEL != BOARD_HELTEC_MESHP && BOARD_MODEL != BOARD_TECHO && BOARD_MODEL != BOARD_T3S3 && BOARD_MODEL != BOARD_TBEAM_S_V1 && BOARD_MODEL != BOARD_OPENCOM_XL
   // Some boards need to wait until the hardware UART is set up before booting
   // the full firmware. In the case of the RAK4631/TECHO, the line below will wait
   // until a serial connection is actually established with a master. Thus, it
@@ -214,8 +249,16 @@ void setup() {
   memset(seq, 0xFF, sizeof(seq));
   memset(read_len, 0, sizeof(read_len));
 
+  #if BOARD_MODEL == BOARD_HELTEC_MESHP
+    Serial.println("step: setup_interfaces");
+    Serial.flush();
+  #endif
   setup_interfaces();
 
+  #if BOARD_MODEL == BOARD_HELTEC_MESHP
+    Serial.println("step: queues");
+    Serial.flush();
+  #endif
   modem_packet_queue = xQueueCreate(MODEM_QUEUE_SIZE, sizeof(modem_packet_t*));
 
   for (int i = 0; i < INTERFACE_COUNT; i++) {
@@ -235,6 +278,9 @@ void setup() {
 
   // add call to init_channel_stats here? \todo
 
+  #if BOARD_MODEL == BOARD_HELTEC_MESHP
+    Serial.println("step: create radio objects");
+  #endif
   // Create and configure interface objects
   for (uint8_t i = 0; i < INTERFACE_COUNT; i++) {
       switch (interfaces[i]) {
@@ -312,6 +358,9 @@ void setup() {
     delay(100);
   #endif
 
+  #if BOARD_MODEL == BOARD_HELTEC_MESHP
+    Serial.println("step: radio preInit");
+  #endif
     // Check installed transceiver chip(s) and probe boot parameters. If any of
     // the configured modems cannot be initialised, do not boot
     for (int i = 0; i < INTERFACE_COUNT; i++) {
@@ -388,8 +437,20 @@ void setup() {
     #endif
 
     #if HAS_BLUETOOTH || HAS_BLE == true
+      #if BOARD_MODEL == BOARD_HELTEC_MESHP
+        Serial.println("step: bt_init");
+        Serial.flush();
+      #endif
       bt_init();
       bt_init_ran = true;
+      #if BOARD_MODEL == BOARD_HELTEC_MESHP
+        Serial.print("bt_ready="); Serial.println(bt_ready ? 1 : 0);
+        Serial.print("bt_enabled="); Serial.println(bt_enabled ? 1 : 0);
+        Serial.print("bt_state="); Serial.println(bt_state);
+        Serial.print("bt_name="); Serial.println(bt_devname);
+        Serial.flush();
+        // Pairing+PIN display deferred until after validate_status() sets hw_ready.
+      #endif
     #endif
 
     if (console_active) {
@@ -421,8 +482,43 @@ void setup() {
     }
 
 
+  #if BOARD_MODEL == BOARD_HELTEC_MESHP
+    Serial.println("step: validate_status");
+  #endif
   // Validate board health, EEPROM and config
   validate_status();
+  #if BOARD_MODEL == BOARD_HELTEC_MESHP
+    MP_DBG("[MP] after validate hw_ready=%d fw_ok=%d bt_ready=%d bt_en=%d radio_en=%d conf=%d\r\n",
+           hw_ready ? 1 : 0, device_firmware_ok() ? 1 : 0,
+           bt_ready ? 1 : 0, bt_enabled ? 1 : 0,
+           radio_conf_enabled() ? 1 : 0, eeprom_have_conf() ? 1 : 0);
+    // Restore LoRa from EEPROM defaults (BLE already started in bt_init when enabled).
+    if (hw_ready && radio_conf_enabled()) {
+      for (int i = 0; i < INTERFACE_COUNT; i++) {
+        eeprom_conf_load(interface_obj[i]);
+        bool ok = startRadio(interface_obj[i]);
+        MP_DBG("[MP] boot LoRa[%d] start=%d online=%d\r\n", i, ok ? 1 : 0,
+               (interface_obj[i] && interface_obj[i]->getRadioOnline()) ? 1 : 0);
+      }
+    } else {
+      MP_DBG("[MP] boot LoRa skipped (hw_ready=%d radio_en=%d)\r\n",
+             hw_ready ? 1 : 0, radio_conf_enabled() ? 1 : 0);
+    }
+    if (bt_ready && bt_enabled && bt_state != BT_STATE_CONNECTED) {
+      bt_enable_pairing();
+      last_epd_refresh = 0;
+      last_epd_full_refresh = 0;
+      last_disp_update = 0;
+      if (disp_ready) update_display();
+      MP_DBG("[MP] *** TYPE THIS PIN IN SIDEBAND: %06lu ***\r\n",
+             (unsigned long)bt_ssp_pin);
+    } else if (disp_ready) {
+      last_epd_refresh = 0;
+      last_disp_update = 0;
+      update_display();
+    }
+    MP_DBG("[MP] setup complete bt_state=%u\r\n", bt_state);
+  #endif
 }
 
 void lora_receive(RadioInterface* radio) {
@@ -1504,6 +1600,15 @@ void tx_queue_handler(RadioInterface* radio) {
 void work_while_waiting() { loop(); }
 
 void loop() {
+    #if BOARD_MODEL == BOARD_HELTEC_MESHP
+      {
+        static uint32_t last_hb = 0;
+        if (millis() - last_hb > 500) {
+          last_hb = millis();
+          Serial.println("alive");
+        }
+      }
+    #endif
     #if MCU_VARIANT == MCU_ESP32
       modem_packet_t *modem_packet = NULL;
       if(modem_packet_queue && xQueueReceive(modem_packet_queue, &modem_packet, 0) == pdTRUE && modem_packet) {
@@ -1646,9 +1751,20 @@ void process_serial() {
 
 void sleep_now() {
   #if HAS_SLEEP == true
+    // Airplane / deep sleep: kill RF first, then MCU SYSTEMOFF / deep sleep.
     for (int i = 0; i < INTERFACE_COUNT; i++) {
-        stopRadio(interface_obj[i]); // TODO: Check this on all platforms
+        stopRadio(interface_obj[i]);
     }
+    #if BOARD_MODEL == BOARD_HELTEC_MESHP
+      radio_conf_save(false);
+      #if HAS_BLE
+        bt_stop();
+        bt_conf_save(false);
+        delay(30);
+      #endif
+      // Splash after radios are off so e-ink shows airplane state until wake.
+      if (disp_ready) { meshp_draw_sleep_splash(); }
+    #endif
     #if PLATFORM == PLATFORM_ESP32
       #if BOARD_MODEL == BOARD_T3S3 || BOARD_MODEL == BOARD_XIAO_S3
         display_intensity = 0;
@@ -1678,6 +1794,9 @@ void sleep_now() {
         delay(2000);
         analogWrite(PIN_VEXT_EN, 0);
         delay(100);
+      #elif BOARD_MODEL == BOARD_HELTEC_MESHP
+        // Already stopped LoRa + BLE above. SYSTEMOFF = near-zero draw; wake = USER.
+        delay(20);
       #endif
       sd_power_gpregret_set(0, 0x6d);
       nrf_gpio_cfg_sense_input(pin_btn_usr1, NRF_GPIO_PIN_PULLUP, NRF_GPIO_PIN_SENSE_LOW);
@@ -1687,9 +1806,14 @@ void sleep_now() {
 }
 
 void button_event(uint8_t event, unsigned long duration) {
+    #if BOARD_MODEL == BOARD_HELTEC_MESHP
+      MP_DBG("[MP] button event=%u hold_ms=%lu blanked=%d bt_state=%u\r\n",
+             event, duration, display_blanked ? 1 : 0, bt_state);
+    #endif
     if (display_blanked) {
       display_unblank();
     } else {
+      // Hold UX (RNode-compatible): short=BLE, >0.7s=airplane sleep, >5s=pairing
       if (duration > 10000) {
         #if HAS_CONSOLE
           #if HAS_BLUETOOTH || HAS_BLE
@@ -1700,22 +1824,46 @@ void button_event(uint8_t event, unsigned long duration) {
         #endif
       } else if (duration > 5000) {
         #if HAS_BLUETOOTH || HAS_BLE
-          if (bt_state != BT_STATE_CONNECTED) { bt_enable_pairing(); }
+          #if BOARD_MODEL == BOARD_HELTEC_MESHP
+            MP_DBG("[MP] USER hold>5s: pairing\r\n");
+            if (bt_state == BT_STATE_OFF) {
+              bt_start();
+              bt_conf_save(true);
+            }
+            if (bt_state != BT_STATE_CONNECTED) {
+              bt_enable_pairing();
+              meshp_force_display_refresh();
+            }
+          #else
+            if (bt_state != BT_STATE_CONNECTED) { bt_enable_pairing(); }
+          #endif
         #endif
       } else if (duration > 700) {
         #if HAS_SLEEP
+          #if BOARD_MODEL == BOARD_HELTEC_MESHP
+            MP_DBG("[MP] USER hold>0.7s: airplane sleep\r\n");
+          #endif
           sleep_now();
         #endif
       } else {
         #if HAS_BLUETOOTH || HAS_BLE
         if (bt_state != BT_STATE_CONNECTED) {
           if (bt_state == BT_STATE_OFF) {
+            #if BOARD_MODEL == BOARD_HELTEC_MESHP
+              MP_DBG("[MP] USER click: BLE on\r\n");
+            #endif
             bt_start();
             bt_conf_save(true);
           } else {
+            #if BOARD_MODEL == BOARD_HELTEC_MESHP
+              MP_DBG("[MP] USER click: BLE off\r\n");
+            #endif
             bt_stop();
             bt_conf_save(false);
           }
+          #if BOARD_MODEL == BOARD_HELTEC_MESHP
+            meshp_force_display_refresh();
+          #endif
         }
         #endif
       }

@@ -265,6 +265,9 @@ bool device_init() {
   #else
   // Skip hash comparison and checking BT
   device_init_done = true;
+  // Without this, device_firmware_ok() stays false and the e-ink UI never
+  // leaves the "firmware corrupt" banner — pairing PIN is never drawn.
+  fw_signature_validated = true;
   return device_init_done;
   #endif
 }

@@ -118,6 +118,12 @@
   #define MODEL_C7            0xC7 // Heltec Mesh Node T114, 863-928 MHz
   #define MODEL_CB            0xCB // Heltec Mesh Node T114, 863-928 MHz + GPS
 
+  // Heltec MeshPocket (nRF52840 + SX1262 + e-ink); pinout from Meshtastic heltec_mesh_pocket
+  #define PRODUCT_HELTEC_MESHP 0xD2
+  #define BOARD_HELTEC_MESHP   0x46
+  #define MODEL_CD             0xCD // Heltec MeshPocket, 470-510 MHz
+  #define MODEL_CE             0xCE // Heltec MeshPocket, 863-928 MHz
+
   #define PRODUCT_TECHO       0x15 // LilyGO T-Echo devices
   #define BOARD_TECHO         0x44
   #define MODEL_16            0x16 // T-Echo 433 MHz
@@ -1390,6 +1396,104 @@
       #define PIN_GPS_RX 37
       #define PIN_GPS_TX 39 
       #endif
+
+    #elif BOARD_MODEL == BOARD_HELTEC_MESHP
+      // USB + BLE RNode, 2.13" e-ink (LCMEN2R13ECC1 / SSD1680).
+      // Skip firmware-hash gate (unsigned factory EEPROM).
+      #define HAS_EEPROM false
+      #define HAS_DISPLAY true
+      #define DISPLAY EINK_BW
+      #define DISPLAY_SCALE_OVERRIDE true
+      #define DISPLAY_SCALE 1.90625
+      #define DISPLAY_MODEL GxEPD2_213_B74
+      #define HAS_BLUETOOTH false
+      #define HAS_BLE true
+      #define HAS_CONSOLE false
+      // ADC battery sense (Meshtastic heltec_mesh_pocket: VBAT=29, ADC_CTRL=34)
+      #define HAS_PMU true
+      #define HAS_NP false
+      #define HAS_SD false
+      #define HAS_TCXO true
+      #define HAS_BUSY true
+      #define HAS_INPUT true
+      #define HAS_SLEEP true
+      #undef VALIDATE_FIRMWARE
+      #define VALIDATE_FIRMWARE false
+      // Verbose USB-serial BLE/pairing trace @ 115200. Build with -DMESHP_DEBUG=0 to silence.
+      #ifndef MESHP_DEBUG
+        #define MESHP_DEBUG 0
+      #endif
+      // EU 868 defaults restored on boot when no host has saved radio params yet.
+      #ifndef MESHP_DEFAULT_FREQ
+        #define MESHP_DEFAULT_FREQ 869525000UL
+      #endif
+      #ifndef MESHP_DEFAULT_BW
+        #define MESHP_DEFAULT_BW 125000UL
+      #endif
+      #ifndef MESHP_DEFAULT_SF
+        #define MESHP_DEFAULT_SF 8
+      #endif
+      #ifndef MESHP_DEFAULT_CR
+        #define MESHP_DEFAULT_CR 6
+      #endif
+      #ifndef MESHP_DEFAULT_TXP
+        #define MESHP_DEFAULT_TXP 14
+      #endif
+      #define CONFIG_UART_BUFFER_SIZE 6144
+      #define CONFIG_QUEUE_SIZE 6144
+      #define CONFIG_QUEUE_MAX_LENGTH 200
+      #define EEPROM_SIZE 296
+      #define EEPROM_OFFSET EEPROM_SIZE-EEPROM_RESERVED
+      #define BLE_MANUFACTURER "Heltec"
+      #define BLE_MODEL "MeshPocket"
+
+      #define LED_ON LOW
+      #define LED_OFF HIGH
+
+      // USER button = P1.10 (Meshtastic PIN_BUTTON1) — also wake from SYSTEMOFF
+      const int pin_btn_usr1 = 42;
+      // Status LED = P0.13
+      const int pin_led_rx = 13;
+      const int pin_led_tx = 13;
+
+      // E-ink on dedicated SPI (Meshtastic heltec_mesh_pocket) — not LoRa SPIM3
+      const int pin_disp_cs = 24;     // P0.24
+      const int pin_disp_dc = 31;     // P0.31
+      const int pin_disp_reset = 36;  // P1.04
+      const int pin_disp_busy = 38;   // P1.06
+      const int pin_disp_en = -1;     // no discrete enable
+      const int pin_disp_sck = 22;    // P0.22
+      const int pin_disp_mosi = 20;   // P0.20
+      const int pin_disp_miso = -1;
+
+      #define INTERFACE_COUNT 1
+
+      const uint8_t interfaces[INTERFACE_COUNT] = {SX1262};
+      const bool interface_cfg[INTERFACE_COUNT][3] = {
+          // SX1262
+          {
+              false, // DEFAULT_SPI
+              true,  // HAS_TCXO
+              true   // DIO2_AS_RF_SWITCH
+          }
+      };
+      // Pins from Meshtastic variants/nrf52840/heltec_mesh_pocket/variant.h
+      // CS=26, SCK=4, MOSI=5, MISO=P1.09(41), BUSY=15, DIO1=16, RESET=12
+      const int8_t interface_pins[INTERFACE_COUNT][10] = {
+          {
+              26, // pin_ss
+              4,  // pin_sclk
+              5,  // pin_mosi
+              41, // pin_miso
+              15, // pin_busy
+              16, // pin_dio
+              12, // pin_reset
+              -1, // pin_txen
+              -1, // pin_rxen
+              -1  // pin_tcxo_enable
+          }
+      };
+
     #else
       #error An unsupported nRF board was selected. Cannot compile RNode firmware.
     #endif

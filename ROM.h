@@ -47,10 +47,13 @@
   #define ADDR_CONF_PINT 0xB6
   #define ADDR_CONF_BSET 0xB7
   #define ADDR_CONF_DIA  0xB9
+  // MeshPocket: user LoRa enable preference (0x73 = on, 0x00 = off)
+  #define ADDR_CONF_RADIO 0xBA
 
   #define INFO_LOCK_BYTE 0x73
   #define CONF_OK_BYTE   0x73
   #define BT_ENABLE_BYTE 0x73
+  #define RADIO_ENABLE_BYTE 0x73
 
   #define EEPROM_RESERVED 200
   //////////////////////////////////

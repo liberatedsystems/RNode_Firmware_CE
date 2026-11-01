@@ -28,7 +28,7 @@
   #define EVENT_BUTTON_CLICK        0x13
   #define EVENT_BUTTON_DOUBLE_CLICK 0x14
   #define EVENT_BUTTON_TRIPLE_CLICK 0x15
-  
+
   int button_events = EVENT_CLICKS;
   int button_state = RELEASED;
   int debounce_state = button_state;
@@ -74,14 +74,14 @@
         } else if (button_events == EVENT_CLICKS) {
           if (previous_state == PRESSED && button_state == RELEASED) {
             button_up_last = millis();
-            button_event(EVENT_BUTTON_CLICK, button_up_last-button_down_last);
+            // Hold duration in ms (same model as stock RNode)
+            button_event(EVENT_BUTTON_CLICK, button_up_last - button_down_last);
           } else if (previous_state == RELEASED && button_state == PRESSED) {
             button_down_last = millis();
           }
         }
       }
     }
-
   }
 
   bool button_pressed() {

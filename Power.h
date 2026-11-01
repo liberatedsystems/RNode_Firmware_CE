@@ -164,6 +164,27 @@
   bool bat_voltage_dropping = false;
   float bat_delay_v = 0;
   float bat_state_change_v = 0;
+#elif BOARD_MODEL == BOARD_HELTEC_MESHP
+  #include "nrfx_power.h"
+  // Meshtastic heltec_mesh_pocket: VBAT=29, ADC_CTRL=34, AREF 3.0V, 12-bit, ×4.6425
+  #define BAT_V_MIN       3.15
+  #define BAT_V_MAX       4.20
+  #define BAT_V_CHG       4.48
+  #define BAT_V_FLOAT     4.22
+  #define BAT_SAMPLES     7
+  #define MESHP_VBAT_MV_LSB (3.0F / 4096.0F)
+  #define MESHP_ADC_MULTIPLIER 4.6425F
+  const uint8_t pin_vbat = 29;
+  const uint8_t pin_ctrl = 34;
+  float bat_p_samples[BAT_SAMPLES];
+  float bat_v_samples[BAT_SAMPLES];
+  uint8_t bat_samples_count = 0;
+  int bat_discharging_samples = 0;
+  int bat_charging_samples = 0;
+  int bat_charged_samples = 0;
+  bool bat_voltage_dropping = false;
+  float bat_delay_v = 0;
+  float bat_state_change_v = 0;
 #endif
 
 uint32_t last_pmu_update = 0;
@@ -265,6 +286,71 @@ void measure_battery() {
       //   if (battery_state == BATTERY_STATE_CHARGED) { SerialBT.print(" Battery is charged."); }
       //   SerialBT.print("\n");
       // }
+    }
+
+  #elif BOARD_MODEL == BOARD_HELTEC_MESHP
+    battery_installed = true;
+    battery_indeterminate = true;
+
+    digitalWrite(pin_ctrl, HIGH);
+    delay(5);
+    float battery_measurement = (float)analogRead(pin_vbat) * MESHP_VBAT_MV_LSB * MESHP_ADC_MULTIPLIER;
+    digitalWrite(pin_ctrl, LOW);
+
+    bat_v_samples[bat_samples_count%BAT_SAMPLES] = battery_measurement;
+    bat_p_samples[bat_samples_count%BAT_SAMPLES] = ((battery_measurement-BAT_V_MIN) / (BAT_V_MAX-BAT_V_MIN))*100.0;
+
+    bat_samples_count++;
+    if (!battery_ready && bat_samples_count >= BAT_SAMPLES) {
+      battery_ready = true;
+    }
+
+    if (battery_ready) {
+      battery_percent = 0;
+      for (uint8_t bi = 0; bi < BAT_SAMPLES; bi++) {
+        battery_percent += bat_p_samples[bi];
+      }
+      battery_percent = battery_percent/BAT_SAMPLES;
+
+      battery_voltage = 0;
+      for (uint8_t bi = 0; bi < BAT_SAMPLES; bi++) {
+        battery_voltage += bat_v_samples[bi];
+      }
+      battery_voltage = battery_voltage/BAT_SAMPLES;
+
+      if (bat_delay_v == 0) bat_delay_v = battery_voltage;
+      if (battery_percent > 100.0) battery_percent = 100.0;
+      if (battery_percent < 0.0) battery_percent = 0.0;
+
+      if (bat_samples_count%BAT_SAMPLES == 0) {
+        if (battery_voltage < bat_delay_v && battery_voltage < BAT_V_FLOAT) {
+          bat_voltage_dropping = true;
+        } else {
+          bat_voltage_dropping = false;
+        }
+        bat_delay_v = battery_voltage;
+        bat_samples_count = 0;
+      }
+
+      nrfx_power_usb_state_t usbstate = nrfx_power_usbstatus_get();
+      if (usbstate == NRFX_POWER_USB_STATE_CONNECTED || usbstate == NRFX_POWER_USB_STATE_READY) {
+        battery_state = BATTERY_STATE_CHARGING;
+      } else {
+        battery_state = BATTERY_STATE_DISCHARGING;
+      }
+      if (battery_percent >= 98) {
+        battery_state = BATTERY_STATE_CHARGED;
+      }
+
+      #if HAS_BLE
+      if ((bt_state == BT_STATE_ON) || bt_state == BT_STATE_CONNECTED) {
+        if (battery_state != BATTERY_STATE_CHARGING) {
+          blebas.write((uint8_t)battery_percent);
+        } else {
+          blebas.write(100);
+        }
+      }
+      #endif
     }
 
   #elif BOARD_MODEL == BOARD_TBEAM || BOARD_MODEL == BOARD_TBEAM_S_V1
@@ -436,6 +522,13 @@ void update_pmu() {
 bool init_pmu() {
   #if BOARD_MODEL == BOARD_RNODE_NG_21 || BOARD_MODEL == BOARD_LORA32_V2_1 || BOARD_MODEL == BOARD_TDECK || BOARD_MODEL == BOARD_T3S3 || BOARD_MODEL == BOARD_TECHO
     pinMode(pin_vbat, INPUT);
+    return true;
+  #elif BOARD_MODEL == BOARD_HELTEC_MESHP
+    analogReference(AR_INTERNAL_3_0);
+    analogReadResolution(12);
+    pinMode(pin_vbat, INPUT);
+    pinMode(pin_ctrl, OUTPUT);
+    digitalWrite(pin_ctrl, LOW);
     return true;
   #elif BOARD_MODEL == BOARD_HELTEC32_V3
     pinMode(pin_ctrl,OUTPUT);
