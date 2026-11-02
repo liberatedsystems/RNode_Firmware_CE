@@ -1728,7 +1728,7 @@ void eeprom_conf_load(RadioInterface* radio) {
 }
 
 void eeprom_conf_save(RadioInterface* radio) {
-	if (hw_ready && radio->getRadioOnline()) {
+	if (hw_ready) {
 		eeprom_update(eeprom_addr(ADDR_CONF_SF), radio->getSpreadingFactor());
 		eeprom_update(eeprom_addr(ADDR_CONF_CR), radio->getCodingRate4());
 		eeprom_update(eeprom_addr(ADDR_CONF_TXP), radio->getTxPower());
