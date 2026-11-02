@@ -312,6 +312,19 @@ void setup() {
     delay(100);
   #endif
 
+  #if BOARD_MODEL == BOARD_RAK4631
+    // The RAK4631 has no reset button and the board is often battery
+    // backed, so the SX1262 is never power-cycled across soft reboots
+    // and nothing else pulses NRESET before the probe. A chip left in
+    // an abnormal state (mid-transaction, BUSY stuck, or deep sleep
+    // from a previous session) fails the preInit() sync-word reads on
+    // every boot and the device stays stuck in HOST mode. Pulse NRESET
+    // so the probe always sees the chip in a known-good state.
+    delay(10);
+    interface_obj[0]->reset();
+    delay(10);
+  #endif
+
     // Check installed transceiver chip(s) and probe boot parameters. If any of
     // the configured modems cannot be initialised, do not boot
     for (int i = 0; i < INTERFACE_COUNT; i++) {

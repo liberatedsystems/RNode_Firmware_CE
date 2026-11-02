@@ -65,6 +65,39 @@ The RNode Firmware supports all transceiver modules based on the following chips
 
 These also must have an **SPI interface** and **DIO_0 (sometimes called DIO_1)** pin connected to the MCU directly.
 
+## RAK4631 (WisBlock) Notes
+
+The RAK4631 has a few hardware and provisioning quirks worth knowing when working with this board.
+
+### No reset button, battery-backed operation
+
+The board has no reset button, and when a battery is attached the MCU and the SX1262 are not power-cycled by unplugging USB. The only reboot available in normal operation is a soft reset (KISS `CMD_RESET`). Because the SX1262 keeps its state across soft reboots, the firmware pulses NRESET before probing the radio at boot, so a chip left in an abnormal state by a previous session (mid-transaction, BUSY stuck, deep sleep) cannot wedge the boot into HOST mode with `No radio module found`.
+
+### The firmware hash must be updated after every flash
+
+`device_init()` validates the SHA-256 of the flashed application image against a hash stored in EEPROM. If the stored hash is stale, `device_init()` fails, `hw_ready` stays 0, and the device silently falls back to HOST mode with no error indication on the serial port.
+
+The `make upload-rak4631` target runs `rnodeconf --firmware-hash` automatically after the upload, but this step can fail silently: after a soft reset or DFU the board may re-enumerate on a different serial port (e.g. `/dev/ttyACM1` instead of `/dev/ttyACM0`) while the upload step targets the old port. The build still reports SUCCESS. After flashing, verify that `Firmware hash set` appears in the build output, or run the update manually against the port the board is actually on:
+
+```
+rnodeconf --firmware-hash <hash> /dev/ttyACM0
+```
+
+The hash to use is the SHA-256 of the built application binary, as passed to `rnodeconf` by the upload target.
+
+### Re-provisioning when the device will not persist config
+
+`eeprom_conf_save()` only persists radio configuration when the hardware validated successfully (`hw_ready`), so a device sitting in HOST mode with `hw_ready: 0` will silently drop every config change made with `rnodeconf`. The escape sequence is:
+
+1. Delete the stored radio config so the device stays in HOST mode on the next boot: KISS `CMD_CONF_DELETE` (opcode `0x54`). Note that command frames must carry a trailing data byte — an empty frame never dispatches — so send `C0 54 00 C0`.
+2. Update the firmware hash as described above. The device stores the hash and reboots itself, coming up in HOST mode with `hw_ready: 1`.
+3. Provision with `rnodeconf --tnc ...`. `eeprom_conf_save()` now works and writes the radio parameters plus `CONF_OK`.
+4. Reboot. The device boots into TNC mode.
+
+### Serial port re-enumeration
+
+A soft reset while a process holds the serial port open typically makes the board re-enumerate as `/dev/ttyACM1` (the previous port node is not reused). Do not assume the board is on `/dev/ttyACM0` after reboots — list the ports with `ls /dev/ttyACM*` and connect to whatever is present.
+
 ## One Tool, Many Uses
 
 The RNode design is meant to flexible and hackable. At it's core, it is a low-power, but extremely long-range digital radio transceiver. Coupled with Reticulum, it provides encrypted and secure communications.
